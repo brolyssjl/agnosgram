@@ -62,9 +62,13 @@ Coming next (Milestone 2): `doctor`, `distill`, `advise`, `pack`, `show`.
 
 ## Status & roadmap
 
-- **Milestone 1 - done:** scaffold + `MEMORY.md` protocol + templates, `init`, `adapt` (Claude Code / Cursor / AGENTS.md), `log`.
-- **Milestone 2 - next:** `doctor` (anti-rot lint: stale entries, budget overruns, broken links, near-dups), frontmatter schema validation, `distill` (emit compaction prompt + validate result), `pack` / `show`, pluggable JSON/TOON output.
-- **Milestone 3 - later:** Claude Code skill/plugin, `install.sh` + prebuilt binary (no-Node fallback), remaining adapters (Windsurf / Cline / OpenCode / Codex), deeper SDD linking.
+Milestone 1 (capture: `init` / `adapt` / `log`) is done and dogfooded. The
+self-maintaining half (`doctor`, `distill`) and the killer `advise` feature are next.
+Full plan with progress checkboxes and release checkpoints:
+**[ROADMAP.md](ROADMAP.md)**.
+
+The first release safe to adopt on a real project is **`0.5.0`** (end of Milestone 2:
+frontmatter schema validation, `doctor`, `distill`, and a frozen on-disk format).
 
 ## How it compares
 
