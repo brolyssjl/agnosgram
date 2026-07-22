@@ -26,7 +26,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsc -p tsconfig.test.json && node --test \"dist/**/*.test.js\"",
+    "test": "tsc -p tsconfig.test.json && node --test $(find dist -name '*.test.js')",
     "bench": "node bench/bench.mjs",
     "bench:check": "node bench/bench.mjs --check",
     "prepare": "npm run build"
