@@ -10,6 +10,10 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
+> **Status:** early and evolving (0.x). Milestone 1 (`init` / `adapt` / `log`) is done
+> and dogfooded on this repo. The on-disk `.agnosgram/` layout is the stable contract;
+> commands are still being added. Expect changes before 1.0.
+
 ## Install
 
 ```bash
@@ -54,7 +58,27 @@ universal fallback for any agent.
 | `agnosgram adapt [claude\|cursor\|agents ...]` | Insert/refresh the managed pointer block. `--all`, `--refresh`, `--json`. |
 | `agnosgram log` | Append a journal entry from flags (`--did/--learned/--decided/--avoid/--next`) or `--stdin`. Auto-detects branch. `--json` for machine consumers. |
 
-Coming next (Milestone 2): `distill`, `doctor`, `advise`, `pack`, `show`.
+Coming next (Milestone 2): `doctor`, `distill`, `advise`, `pack`, `show`.
+
+## Status & roadmap
+
+- **Milestone 1 - done:** scaffold + `MEMORY.md` protocol + templates, `init`, `adapt` (Claude Code / Cursor / AGENTS.md), `log`.
+- **Milestone 2 - next:** `doctor` (anti-rot lint: stale entries, budget overruns, broken links, near-dups), frontmatter schema validation, `distill` (emit compaction prompt + validate result), `pack` / `show`, pluggable JSON/TOON output.
+- **Milestone 3 - later:** Claude Code skill/plugin, `install.sh` + prebuilt binary (no-Node fallback), remaining adapters (Windsurf / Cline / OpenCode / Codex), deeper SDD linking.
+
+## How it compares
+
+| | Storage | Works with | Reviewable in PRs | Anti-rot |
+|---|---|---|---|---|
+| **Agnosgram** | plain Markdown in the repo | any agent (adapters + AGENTS.md fallback) | yes | `last_verified` + `doctor` |
+| engram | per-user SQLite + 19 MCP tools | MCP-capable agents only | no (opaque DB) | - |
+| Cline Memory Bank | Markdown, single tool | Cline / Roo | in-repo but tool-bound | - |
+| braingram | Markdown | Claude Code only | yes | - |
+| AGENTS.md / CLAUDE.md | Markdown instructions | per-format | yes | no lifecycle or schema |
+
+The difference: memory as **reviewable documentation that lives in your repo**,
+portable across agents, with a capture→distill lifecycle and staleness tracking -
+not a per-user database and not a single-agent file.
 
 ## Design principles
 
