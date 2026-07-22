@@ -1,0 +1,38 @@
+{
+  "name": "agnosgram",
+  "version": "0.1.0",
+  "description": "Agent-agnostic, per-project memory for AI coding agents. Plain Markdown + YAML in your repo, reviewable in PRs.",
+  "keywords": [
+    "ai",
+    "agent",
+    "memory",
+    "claude",
+    "cursor",
+    "agents.md",
+    "coding-agent",
+    "context",
+    "markdown"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "agnosgram": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.test.json && node --test \"dist/**/*.test.js\"",
+    "bench": "node bench/bench.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "gpt-tokenizer": "^2.9.0",
+    "typescript": "^5.5.0"
+  }
+}

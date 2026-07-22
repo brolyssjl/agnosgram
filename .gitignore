@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Internal design docs — not for the public repo
+kickoff-agnosgram.md
+proposal-1-agnosgram-project-memory_1.md
