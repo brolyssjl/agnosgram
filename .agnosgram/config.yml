@@ -4,6 +4,7 @@
 version: 1
 journal:
   committed: true
+staleness_days: 120
 budgets:
   state/status.md: 400
   context/architecture.md: 1500

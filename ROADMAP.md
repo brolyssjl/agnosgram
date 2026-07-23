@@ -41,17 +41,17 @@ plans - but capture and anti-rot are solid from `0.5.0`.
 - [ ] Reserve `agnosgram` on npm + first `npm publish`
 - [ ] Verify `npx agnosgram init` on a clean machine
 
-## Milestone 2 - Anti-rot & curation · `0.5.0` (beta)
+## Milestone 2 - Anti-rot & curation · `0.5.0` (beta) ✅ done
 _Turns "a Markdown folder" into a self-maintaining store. Ends with a format freeze -
 the release to adopt on the legacy project._
-- [ ] Frontmatter schema: parser + validator (`id`, `type`, `scope`, `confidence`, `created`, `last_verified`, `source`, `supersedes?`)
-- [ ] `doctor`: stale entries (by `last_verified` age), budget overruns, broken links, orphan/duplicate ids, near-duplicate heuristic
-- [ ] `doctor` safety lints: secret-scan pattern check, suspicious-imperative flag (prompt-injection guard)
-- [ ] Budgets: enforce per-file token budgets from `config.yml` + freshness table
-- [ ] `distill`: emit compaction prompt (merge with `supersedes:`, never append near-dups) + mechanically validate result (schema, ids, budgets); archive distilled journal months
-- [ ] `bootstrap` (legacy-focused): emit a prompt that seeds `context/architecture.md` + `domain.md` from an existing codebase - fast onboarding for a repo with no memory yet
-- [ ] **Format freeze**: lock `.agnosgram/` layout + frontmatter schema; document the stable contract
-- [ ] Docs: schema reference + `doctor`/`distill`/`bootstrap` guides
+- [x] Frontmatter schema: parser + validator (`id`, `type`, `scope`, `confidence`, `created`, `last_verified`, `source`, `supersedes?`)
+- [x] `doctor`: stale entries (by `last_verified` age), budget overruns, broken links, orphan/duplicate ids, near-duplicate heuristic
+- [x] `doctor` safety lints: secret-scan pattern check, suspicious-imperative flag (prompt-injection guard)
+- [x] Budgets: enforce per-file token budgets from `config.yml` + freshness table
+- [x] `distill`: emit compaction prompt (merge with `supersedes:`, never append near-dups) + mechanically validate result (schema, ids, budgets); archive distilled journal months
+- [x] `bootstrap` (legacy-focused): emit a prompt that seeds `context/architecture.md` + `domain.md` from an existing codebase - fast onboarding for a repo with no memory yet
+- [x] **Format freeze**: lock `.agnosgram/` layout + frontmatter schema; document the stable contract (see `.agnosgram/decisions/0002-format-freeze.md`)
+- [x] Docs: schema reference + `doctor`/`distill`/`bootstrap` guides (`docs/`)
 
 ## Milestone 3 - Retrieval & the killer feature · `0.8.0` (RC)
 - [ ] Pluggable output serializer (JSON default, TOON opt-in) behind one interface
