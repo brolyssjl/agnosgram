@@ -45,6 +45,26 @@ test("round-trips a config-shaped object", () => {
   assert.deepEqual(round, obj);
 });
 
+test("parses inline flow sequences of scalars", () => {
+  const v = parseYaml("scope: [core, tooling]\nsupersedes: [DEC-0001, DEC-0002]\n") as Record<
+    string,
+    unknown
+  >;
+  assert.deepEqual(v.scope, ["core", "tooling"]);
+  assert.deepEqual(v.supersedes, ["DEC-0001", "DEC-0002"]);
+});
+
+test("parses an empty flow sequence and empty flow map", () => {
+  const v = parseYaml("a: []\nb: {}\n") as Record<string, unknown>;
+  assert.deepEqual(v.a, []);
+  assert.deepEqual(v.b, {});
+});
+
+test("flow sequence respects quoted commas", () => {
+  const v = parseYaml('tags: ["a, b", c]\n') as Record<string, unknown>;
+  assert.deepEqual(v.tags, ["a, b", "c"]);
+});
+
 test("quotes values that would otherwise reparse wrong", () => {
   const out = stringifyYaml({ a: "true", b: "123", c: "x: y" } as never);
   const round = parseYaml(out) as Record<string, unknown>;

@@ -58,10 +58,37 @@ function parseScalar(token: string): YamlValue {
   if (t === "false") return false;
   if (/^-?\d+$/.test(t)) return Number.parseInt(t, 10);
   if (/^-?\d+\.\d+$/.test(t)) return Number.parseFloat(t);
+  if (t === "{}") return {};
+  if (t.startsWith("[") && t.endsWith("]")) {
+    // Flow sequence of scalars, e.g. `scope: [core, tooling]`. Used by record
+    // frontmatter; kept deliberately narrow (scalars only, no nested flow).
+    const inner = t.slice(1, -1).trim();
+    if (inner === "") return [];
+    return splitFlow(inner).map((s) => parseScalar(s));
+  }
   if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
     return t.slice(1, -1);
   }
   return t;
+}
+
+/** Split a flow-sequence body on top-level commas, respecting quotes. */
+function splitFlow(inner: string): string[] {
+  const parts: string[] = [];
+  let inSingle = false;
+  let inDouble = false;
+  let start = 0;
+  for (let i = 0; i < inner.length; i++) {
+    const ch = inner[i];
+    if (ch === "'" && !inDouble) inSingle = !inSingle;
+    else if (ch === '"' && !inSingle) inDouble = !inDouble;
+    else if (ch === "," && !inSingle && !inDouble) {
+      parts.push(inner.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.push(inner.slice(start).trim());
+  return parts.filter((p) => p !== "");
 }
 
 /** Parse a block of lines whose indentation is >= `indent`, starting at `i`. */
