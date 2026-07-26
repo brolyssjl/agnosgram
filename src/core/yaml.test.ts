@@ -45,10 +45,44 @@ test("round-trips a config-shaped object", () => {
   assert.deepEqual(round, obj);
 });
 
+test("parses inline flow sequences of scalars", () => {
+  const v = parseYaml("scope: [core, tooling]\nsupersedes: [DEC-0001, DEC-0002]\n") as Record<
+    string,
+    unknown
+  >;
+  assert.deepEqual(v.scope, ["core", "tooling"]);
+  assert.deepEqual(v.supersedes, ["DEC-0001", "DEC-0002"]);
+});
+
+test("parses an empty flow sequence and empty flow map", () => {
+  const v = parseYaml("a: []\nb: {}\n") as Record<string, unknown>;
+  assert.deepEqual(v.a, []);
+  assert.deepEqual(v.b, {});
+});
+
+test("flow sequence respects quoted commas", () => {
+  const v = parseYaml('tags: ["a, b", c]\n') as Record<string, unknown>;
+  assert.deepEqual(v.tags, ["a, b", "c"]);
+});
+
 test("quotes values that would otherwise reparse wrong", () => {
   const out = stringifyYaml({ a: "true", b: "123", c: "x: y" } as never);
   const round = parseYaml(out) as Record<string, unknown>;
   assert.equal(round.a, "true");
   assert.equal(round.b, "123");
   assert.equal(round.c, "x: y");
+});
+
+test("rejects block scalars instead of silently mis-parsing them", () => {
+  assert.throws(() => parseYaml("source: |\n  journal/2026-07.md\n  trailing junk\n"), /block scalars/);
+  assert.throws(() => parseYaml("note: >-\n  folded\n"), /block scalars/);
+});
+
+test("rejects leftover lines it cannot represent", () => {
+  assert.throws(() => parseYaml("a: 1\n  b: 2\n"), /line 2/);
+});
+
+test("strips a comment after an unquoted value containing an apostrophe", () => {
+  const v = parseYaml("note: don't repeat this # see LES-002\n") as Record<string, unknown>;
+  assert.equal(v.note, "don't repeat this");
 });

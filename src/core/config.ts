@@ -7,10 +7,14 @@ export type Toggle = "auto" | "on" | "off";
 export interface AgnosgramConfig {
   version: number;
   journal: { committed: boolean };
+  /** A record whose `last_verified` is older than this many days is stale. */
+  staleness_days: number;
   budgets: Record<string, number>;
   adapters: Record<string, Toggle>;
   sdd: Record<string, Toggle>;
 }
+
+export const DEFAULT_STALENESS_DAYS = 120;
 
 export const DEFAULT_BUDGETS: Record<string, number> = {
   "state/status.md": 400,
@@ -25,6 +29,7 @@ export function defaultConfig(): AgnosgramConfig {
   return {
     version: 1,
     journal: { committed: true },
+    staleness_days: DEFAULT_STALENESS_DAYS,
     budgets: { ...DEFAULT_BUDGETS },
     adapters: { claude: "off", cursor: "off", agents: "off" },
     sdd: { openspec: "auto", speckit: "auto", bmad: "auto", agentos: "auto" },
@@ -53,6 +58,9 @@ function normalizeConfig(raw: YamlValue): AgnosgramConfig {
   const obj = raw as Record<string, YamlValue>;
 
   if (typeof obj.version === "number") base.version = obj.version;
+  if (typeof obj.staleness_days === "number" && obj.staleness_days > 0) {
+    base.staleness_days = obj.staleness_days;
+  }
 
   const journal = obj.journal;
   if (journal && typeof journal === "object" && !Array.isArray(journal)) {

@@ -26,11 +26,19 @@ function stripComment(raw: string): string {
   let inDouble = false;
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
-    if (ch === "'" && !inDouble) inSingle = !inSingle;
-    else if (ch === '"' && !inSingle) inDouble = !inDouble;
-    else if (ch === "#" && !inSingle && !inDouble) {
+    const prev = i === 0 ? "" : raw[i - 1]!;
+    // A quote only *opens* a string at a position where a value can start;
+    // an apostrophe inside a word (don't) is plain text, not a delimiter.
+    const canOpen = i === 0 || /[\s[,:]/.test(prev);
+    if (ch === "'" && !inDouble) {
+      if (inSingle) inSingle = false;
+      else if (canOpen) inSingle = true;
+    } else if (ch === '"' && !inSingle) {
+      if (inDouble) inDouble = false;
+      else if (canOpen) inDouble = true;
+    } else if (ch === "#" && !inSingle && !inDouble) {
       // A comment marker only counts at line start or after whitespace.
-      if (i === 0 || raw[i - 1] === " " || raw[i - 1] === "\t") {
+      if (i === 0 || prev === " " || prev === "\t") {
         return raw.slice(0, i);
       }
     }
@@ -58,10 +66,37 @@ function parseScalar(token: string): YamlValue {
   if (t === "false") return false;
   if (/^-?\d+$/.test(t)) return Number.parseInt(t, 10);
   if (/^-?\d+\.\d+$/.test(t)) return Number.parseFloat(t);
+  if (t === "{}") return {};
+  if (t.startsWith("[") && t.endsWith("]")) {
+    // Flow sequence of scalars, e.g. `scope: [core, tooling]`. Used by record
+    // frontmatter; kept deliberately narrow (scalars only, no nested flow).
+    const inner = t.slice(1, -1).trim();
+    if (inner === "") return [];
+    return splitFlow(inner).map((s) => parseScalar(s));
+  }
   if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
     return t.slice(1, -1);
   }
   return t;
+}
+
+/** Split a flow-sequence body on top-level commas, respecting quotes. */
+function splitFlow(inner: string): string[] {
+  const parts: string[] = [];
+  let inSingle = false;
+  let inDouble = false;
+  let start = 0;
+  for (let i = 0; i < inner.length; i++) {
+    const ch = inner[i];
+    if (ch === "'" && !inDouble) inSingle = !inSingle;
+    else if (ch === '"' && !inSingle) inDouble = !inDouble;
+    else if (ch === "," && !inSingle && !inDouble) {
+      parts.push(inner.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.push(inner.slice(start).trim());
+  return parts.filter((p) => p !== "");
 }
 
 /** Parse a block of lines whose indentation is >= `indent`, starting at `i`. */
@@ -88,6 +123,11 @@ function parseBlock(lines: Line[], i: number, indent: number): [YamlValue, numbe
     }
     const key = line.content.slice(0, colon).trim();
     const rest = line.content.slice(colon + 1).trim();
+    if (/^[|>][+-]?$/.test(rest)) {
+      throw new Error(
+        `Invalid YAML at line ${line.lineNo}: block scalars (| and >) are outside the supported subset`,
+      );
+    }
     i++;
     if (rest !== "") {
       map[key] = parseScalar(rest);
@@ -119,7 +159,14 @@ function findColon(content: string): number {
 export function parseYaml(text: string): YamlValue {
   const lines = tokenize(text);
   if (lines.length === 0) return {};
-  const [value] = parseBlock(lines, 0, lines[0]!.indent);
+  const [value, next] = parseBlock(lines, 0, lines[0]!.indent);
+  if (next < lines.length) {
+    // Silently dropping unconsumed lines would let mis-indented or unsupported
+    // constructs pass validation with their meaning lost. Fail loudly instead.
+    throw new Error(
+      `Invalid YAML at line ${lines[next]!.lineNo}: unexpected indentation or content outside the supported subset`,
+    );
+  }
   return value;
 }
 

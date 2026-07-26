@@ -10,9 +10,11 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
-> **Status:** early and evolving (0.x). Milestone 1 (`init` / `adapt` / `log`) is done
-> and dogfooded on this repo. The on-disk `.agnosgram/` layout is the stable contract;
-> commands are still being added. Expect changes before 1.0.
+> **Status:** beta (`0.5.0`). Milestones 1-2 are done and dogfooded on this repo:
+> capture (`init` / `adapt` / `log`) plus the self-maintaining half (`doctor` /
+> `distill` / `bootstrap`). **The on-disk `.agnosgram/` format is frozen** at format
+> version 1 - safe to adopt on a real, even legacy, project. See the
+> [schema reference](docs/schema-reference.md).
 
 ## Install
 
@@ -50,25 +52,39 @@ to read `.agnosgram/MEMORY.md` first. The block is idempotent - re-running `adap
 rewrites only that region and never touches your own content. `AGENTS.md` is the
 universal fallback for any agent.
 
-## Commands (Milestone 1)
+## Commands
 
 | Command | What it does |
 |---|---|
 | `agnosgram init` | Scaffold `.agnosgram/`, detect SDD frameworks + agents, write adapters. `--adapt <list\|none>`, `--force`, `--no-journal-commit`, `--json`. |
 | `agnosgram adapt [claude\|cursor\|agents ...]` | Insert/refresh the managed pointer block. `--all`, `--refresh`, `--json`. |
 | `agnosgram log` | Append a journal entry from flags (`--did/--learned/--decided/--avoid/--next`) or `--stdin`. Auto-detects branch. `--json` for machine consumers. |
+| `agnosgram doctor` | Lint the store: schema, staleness, budgets, broken links, duplicate/near-duplicate ids, and safety lints (secret scan + prompt-injection guard). `--strict`, `--json`. See [guide](docs/doctor.md). |
+| `agnosgram distill` | Emit a compaction prompt (merge via `supersedes:`, never append near-dups); `--validate <file>` checks a distilled result; `--archive <YYYY-MM>` retires an absorbed journal month. See [guide](docs/distill.md). |
+| `agnosgram bootstrap` | Emit a prompt that seeds `context/architecture.md` + `domain.md` from an existing codebase - fast onboarding for a legacy repo. See [guide](docs/bootstrap.md). |
 
-Coming next (Milestone 2): `doctor`, `distill`, `advise`, `pack`, `show`.
+Judgment steps (`distill`, `bootstrap`) **emit a prompt** for your agent and then
+validate the result mechanically - the CLI itself never calls an LLM.
+
+Coming next (Milestone 3): `advise` (the landmine-catcher), `pack`, `show`.
+
+## Anti-rot
+
+Every curated entry carries `confidence` + `last_verified`; `config.yml` sets a
+`staleness_days` window and per-file token budgets. `agnosgram doctor` turns that
+into an executable check you can run in CI - it is the specification of the frozen
+format. Full field-by-field contract: **[docs/schema-reference.md](docs/schema-reference.md)**.
 
 ## Status & roadmap
 
-Milestone 1 (capture: `init` / `adapt` / `log`) is done and dogfooded. The
-self-maintaining half (`doctor`, `distill`) and the killer `advise` feature are next.
+Milestones 1-2 are done and dogfooded: capture (`init` / `adapt` / `log`) and the
+self-maintaining half (`doctor` / `distill` / `bootstrap`), with the on-disk format
+frozen at version 1. The killer `advise` feature (contradiction-catcher) is next.
 Full plan with progress checkboxes and release checkpoints:
 **[ROADMAP.md](ROADMAP.md)**.
 
-The first release safe to adopt on a real project is **`0.5.0`** (end of Milestone 2:
-frontmatter schema validation, `doctor`, `distill`, and a frozen on-disk format).
+**`0.5.0`** is the first release safe to adopt on a real project: frontmatter schema
+validation, `doctor`, `distill`, and a frozen on-disk format.
 
 ## How it compares
 

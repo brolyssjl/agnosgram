@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { runAdapt } from "./commands/adapt.js";
+import { runBootstrap } from "./commands/bootstrap.js";
+import { runDistill } from "./commands/distill.js";
+import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runLog } from "./commands/log.js";
 import { UserError, warn } from "./core/output.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.5.0";
 
 const HELP = `agnosgram — agent-agnostic, per-project memory (plain Markdown in your repo)
 
@@ -13,11 +16,17 @@ Usage:
   agnosgram adapt [claude|cursor|agents ...] [--all] [--refresh] [--json]
   agnosgram log   [--did .. --learned .. --decided .. --avoid .. --next ..]
                   [--agent <name>] [--branch <name>] [--stdin] [--json]
+  agnosgram doctor [--strict] [--json]
+  agnosgram distill [--validate <file>] [--archive <YYYY-MM>] [--json]
+  agnosgram bootstrap [--json]
 
 Commands:
-  init    Scaffold .agnosgram/, detect SDD frameworks + agents, write adapters.
-  adapt   Insert/refresh the managed pointer block in an agent's config file.
-  log     Append a journal entry (agents call this at session end).
+  init      Scaffold .agnosgram/, detect SDD frameworks + agents, write adapters.
+  adapt     Insert/refresh the managed pointer block in an agent's config file.
+  log       Append a journal entry (agents call this at session end).
+  doctor    Lint the store: schema, staleness, budgets, links, ids, safety.
+  distill   Emit a compaction prompt; validate a distilled result; archive months.
+  bootstrap Emit a prompt seeding context/ from an existing codebase.
 
 Global:
   -h, --help       Show this help.
@@ -49,6 +58,15 @@ function main(): void {
         break;
       case "log":
         runLog(rest);
+        break;
+      case "doctor":
+        runDoctor(rest);
+        break;
+      case "distill":
+        runDistill(rest);
+        break;
+      case "bootstrap":
+        runBootstrap(rest);
         break;
       default:
         warn(`Unknown command: ${command}\n`);

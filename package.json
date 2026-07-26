@@ -1,6 +1,6 @@
 {
   "name": "agnosgram",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Agent-agnostic, per-project memory for AI coding agents. Plain Markdown + YAML in your repo, reviewable in PRs.",
   "keywords": [
     "ai",
