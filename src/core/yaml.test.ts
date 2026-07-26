@@ -72,3 +72,17 @@ test("quotes values that would otherwise reparse wrong", () => {
   assert.equal(round.b, "123");
   assert.equal(round.c, "x: y");
 });
+
+test("rejects block scalars instead of silently mis-parsing them", () => {
+  assert.throws(() => parseYaml("source: |\n  journal/2026-07.md\n  trailing junk\n"), /block scalars/);
+  assert.throws(() => parseYaml("note: >-\n  folded\n"), /block scalars/);
+});
+
+test("rejects leftover lines it cannot represent", () => {
+  assert.throws(() => parseYaml("a: 1\n  b: 2\n"), /line 2/);
+});
+
+test("strips a comment after an unquoted value containing an apostrophe", () => {
+  const v = parseYaml("note: don't repeat this # see LES-002\n") as Record<string, unknown>;
+  assert.equal(v.note, "don't repeat this");
+});

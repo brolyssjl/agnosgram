@@ -104,7 +104,9 @@ function validateFile(root: string, relArg: string): ValidateResult {
 
   const records = extractRecords(text);
   const seen = new Map<string, number>();
-  const otherIds = new Set(existingIds(root, join(".agnosgram", storeRel)));
+  // `existingIds` compares against slash-normalized project-relative paths, so
+  // build the exclusion the same way (join() would use backslashes on Windows).
+  const otherIds = new Set(existingIds(root, `.agnosgram/${storeRel}`));
 
   for (const raw of records) {
     const { issues: recIssues } = validateRecord(raw);
@@ -136,7 +138,7 @@ function validateFile(root: string, relArg: string): ValidateResult {
 
   const errors = issues.filter((i) => i.level === "error").length;
   const warnings = issues.filter((i) => i.level === "warn").length;
-  return { file: join(".agnosgram", storeRel), ok: errors === 0, errors, warnings, issues };
+  return { file: `.agnosgram/${storeRel}`, ok: errors === 0, errors, warnings, issues };
 }
 
 function archiveMonth(root: string, month: string): string {
@@ -154,7 +156,7 @@ function archiveMonth(root: string, month: string): string {
     throw new UserError(`Already archived: .agnosgram/journal/archive/${month}.md exists.`);
   }
   renameSync(src, dest);
-  return join(".agnosgram", "journal", "archive", `${month}.md`);
+  return `.agnosgram/journal/archive/${month}.md`;
 }
 
 export function runDistill(argv: string[]): void {

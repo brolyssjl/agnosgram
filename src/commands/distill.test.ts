@@ -67,3 +67,14 @@ test("distill --archive moves a journal month into archive/", () => {
 test("distill --archive rejects a bad month argument", () => {
   assert.throws(() => runDistill(["--archive", "nope"]), /YYYY-MM/);
 });
+
+test("distill --validate fails frontmatter holding a block scalar", () => {
+  const file = join(root, ".agnosgram", "lessons", "pitfalls.md");
+  writeFileSync(
+    file,
+    `# Pitfalls\n\n---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: |\n  journal/2026-07.md\n  plus trailing junk\n---\nBody.\n`,
+  );
+  runDistill(["--validate", "lessons/pitfalls.md"]);
+  assert.equal(process.exitCode, 1);
+  assert.ok(out.includes("frontmatter.parse") || out.includes("block scalars"), out);
+});

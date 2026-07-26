@@ -102,3 +102,62 @@ test("validateRecord warns when last_verified precedes created", () => {
   const codes = validateRecord(rec!).issues.map((i) => i.code);
   assert.ok(codes.includes("date.order"));
 });
+
+test("a thematic break inside a body does not derail later records", () => {
+  const doc = `# Pitfalls
+
+---
+id: LES-001
+type: pitfall
+scope: [core]
+confidence: high
+created: 2026-07-21
+last_verified: 2026-07-21
+source: journal/2026-07.md
+---
+First half of the lesson.
+
+---
+
+Second half after a horizontal rule.
+
+---
+id: LES-002
+type: pitfall
+scope: [core]
+confidence: high
+created: 2026-07-21
+last_verified: 2026-07-21
+source: journal/2026-07.md
+---
+A completely separate second lesson.
+`;
+  const recs = extractRecords(doc);
+  assert.equal(recs.length, 2);
+  assert.equal(recs[0]!.data.id, "LES-001");
+  assert.ok(recs[0]!.body.includes("Second half after a horizontal rule."));
+  assert.equal(recs[1]!.data.id, "LES-002");
+  for (const rec of recs) {
+    assert.equal(validateRecord(rec).issues.filter((i) => i.level === "error").length, 0);
+  }
+});
+
+test("a body consisting of a fenced code block is preserved, not blanked", () => {
+  const doc = `---
+id: LES-003
+type: pitfall
+scope: [core]
+confidence: high
+created: 2026-07-21
+last_verified: 2026-07-21
+source: journal/2026-07.md
+---
+\`\`\`bash
+export NODE_OPTIONS=--max-old-space-size=4096
+\`\`\`
+`;
+  const [rec] = extractRecords(doc);
+  assert.ok(rec!.body.includes("NODE_OPTIONS"));
+  const codes = validateRecord(rec!).issues.map((i) => i.code);
+  assert.ok(!codes.includes("body.empty"));
+});

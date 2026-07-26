@@ -54,7 +54,9 @@ agnosgram distill --archive 2026-07
 ```
 
 This moves `journal/2026-07.md` to `journal/archive/2026-07.md`. Archived months
-are frozen history: `doctor` ignores them.
+are frozen history: `doctor` ignores them, and records whose `source:` names the
+original month keep resolving (`doctor` also checks `journal/archive/`), so
+archiving never turns a healthy store red.
 
 ## Why the human stays in the loop
 

@@ -24,6 +24,13 @@ Markdown body. `lessons/*.md` hold many records; each `decisions/NNNN-*.md` hold
 one. Frontmatter that appears inside an HTML comment or a fenced code block is
 ignored (so templates and docs are not mistaken for real records).
 
+A `---` line opens a record only when the lines up to the next `---` are all
+YAML-shaped (`key: value`, list items, indented continuations). A Markdown
+thematic break (`---` followed by prose) is ordinary body content - bodies may
+contain horizontal rules and fenced code freely. Frontmatter values are
+single-line scalars or lists; YAML block scalars (`|`, `>`) are outside the
+subset and rejected.
+
 ```
 ---
 id: LES-001
@@ -46,7 +53,7 @@ Do not use CommonJS require() in this ESM package; it fails at runtime.
 | `confidence` | yes | `low`, `medium`, or `high` |
 | `created` | yes | `YYYY-MM-DD` (valid calendar date) |
 | `last_verified` | yes | `YYYY-MM-DD`; bump it whenever you re-confirm the record |
-| `source` | yes | store-relative path the record was distilled from (usually a journal month) |
+| `source` | yes | store-relative path the record was distilled from (usually a journal month). Whole files only - no `#L` line anchors, they break on the next append. A source that moved to `journal/archive/` still resolves. |
 | `supersedes` | no | an id or list of ids this record replaces; set it when you merge duplicates |
 
 `scope` and `supersedes` may use inline flow sequences (`[a, b]`) or block lists.
@@ -65,8 +72,15 @@ budgets:                   # per-file token ceilings
   context/domain.md: 1000
   lessons/pitfalls.md: 1000
   lessons/conventions.md: 1000
-adapters: { claude: on, cursor: off, agents: on }   # auto | on | off
-sdd: { openspec: auto, speckit: auto, bmad: auto, agentos: auto }
+adapters:                  # auto | on | off
+  claude: on
+  cursor: off
+  agents: on
+sdd:
+  openspec: auto
+  speckit: auto
+  bmad: auto
+  agentos: auto
 ```
 
 Unknown keys are ignored on load, so future versions can add keys without breaking
@@ -91,5 +105,6 @@ The whole-file counterpart to per-record `last_verified`. Rows look like:
 This is **format version 1**. Later releases may add optional fields or files; they
 will never remove, rename, or repurpose anything above, and never make an old store
 fail to load. A breaking change would require `version: 2` and a documented
-migration - which the design is built to avoid. See
-`.agnosgram/decisions/0002-format-freeze.md`.
+migration - which the design is built to avoid. `doctor` refuses a store whose
+`config.yml` declares a version it does not understand rather than validating it
+as if it were v1. See `.agnosgram/decisions/0002-format-freeze.md`.

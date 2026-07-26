@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
@@ -91,4 +91,36 @@ test("exit-relevant report distinguishes errors from warnings", () => {
   // Content of the real scaffolded MEMORY freshness rows must not be flagged today.
   const memory = readFileSync(join(root, ".agnosgram", "MEMORY.md"), "utf8");
   assert.ok(memory.includes("Freshness"));
+});
+
+test("a record sourced from an archived journal month stays clean", () => {
+  writePitfalls(`---\nid: LES-001\ntype: pitfall\nscope: [x]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-25\nsource: journal/2020-01.md\n---\nDistilled from a month that has since been archived.\n`);
+  const archiveDir = join(root, ".agnosgram", "journal", "archive");
+  mkdirSync(archiveDir, { recursive: true });
+  writeFileSync(join(archiveDir, "2020-01.md"), "# Journal - 2020-01\n");
+  const c = codes();
+  assert.ok(!c.includes("source.missing"), JSON.stringify(c));
+});
+
+test("flags a line-anchored source and a missing source path", () => {
+  writePitfalls(
+    `---\nid: LES-001\ntype: pitfall\nscope: [x]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-25\nsource: journal/1999-01.md\n---\nSourced from a month that never existed.\n`,
+  );
+  assert.ok(codes().includes("source.missing"));
+  const month = new Date().toISOString().slice(0, 7);
+  writePitfalls(
+    `---\nid: LES-001\ntype: pitfall\nscope: [x]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-25\nsource: journal/${month}.md#L12\n---\nAnchored provenance rots on the next append.\n`,
+  );
+  const c = codes();
+  assert.ok(c.includes("source.anchor"));
+  assert.ok(!c.includes("source.missing"), JSON.stringify(c));
+});
+
+test("rejects a store declaring a newer format version", () => {
+  const configFile = join(root, ".agnosgram", "config.yml");
+  const yml = readFileSync(configFile, "utf8").replace("version: 1", "version: 2");
+  writeFileSync(configFile, yml);
+  const report = runDoctorChecks(root);
+  assert.ok(report.findings.some((f) => f.code === "config.version.unsupported" && f.level === "error"));
+  assert.equal(report.ok, false);
 });

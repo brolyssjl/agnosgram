@@ -27,6 +27,7 @@ Run it in CI to keep memory healthy the same way you keep code healthy.
 | `schema.*` | a record's frontmatter violates the schema (missing/invalid field) |
 | `id.duplicate` | the same id appears on more than one record |
 | `secret.*` | a probable committed secret (AWS key, PEM block, token, ...) - remove and rotate |
+| `config.version.unsupported` | `config.yml` declares a format version this release does not understand |
 
 **Warnings** (surfaced, non-blocking unless `--strict`):
 
@@ -38,6 +39,8 @@ Run it in CI to keep memory healthy the same way you keep code healthy.
 | `link.broken` | a Markdown link points to a missing local file |
 | `supersedes.orphan` | `supersedes:` references an id no record defines |
 | `record.near-duplicate` | two same-type records overlap heavily - merge them via `supersedes:` |
+| `source.missing` | a record's `source:` path does not exist under `.agnosgram/` (archived journal months in `journal/archive/` still resolve) |
+| `source.anchor` | a record's `source:` carries a `#L` line anchor, which breaks on the next append - reference the whole file |
 | `injection.*` | stored memory contains an imperative that could hijack an agent |
 
 ## The safety lints

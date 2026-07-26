@@ -65,21 +65,50 @@ function maskNonRecordSpans(text: string): string {
     .replace(/```[\s\S]*?```/g, blank);
 }
 
+/**
+ * A line that can appear inside a frontmatter block: a `key:` line, a block-list
+ * item, an indented continuation, or nothing. Used to tell a record's opening
+ * fence apart from a Markdown thematic break (`---`) inside a body.
+ */
+const YAMLISH_LINE = /^(\s+\S.*|[A-Za-z_][A-Za-z0-9_-]*:(\s.*)?|-\s.*|-)$/;
+
 /** Extract every frontmatter record from a Markdown file's text. */
 export function extractRecords(text: string): RawRecord[] {
-  const lines = maskNonRecordSpans(text).split(/\r?\n/);
-  const fences: number[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i]!.trim() === "---") fences.push(i);
+  // Fences are detected on the masked text (so examples inside comments and
+  // code fences are invisible), but YAML and bodies are read from the original
+  // lines so real body content - including fenced code - is preserved.
+  const original = text.split(/\r?\n/);
+  const masked = maskNonRecordSpans(text).split(/\r?\n/);
+
+  // A `---` opens a record only when the lines up to the next `---` are all
+  // YAML-shaped (and there is at least one). A thematic break followed by prose
+  // is body content, not a fence - the frozen format allows `---` in bodies.
+  const bounds: Array<{ open: number; close: number }> = [];
+  let i = 0;
+  while (i < masked.length) {
+    if (masked[i]!.trim() !== "---") {
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (j < masked.length && masked[j]!.trim() !== "---") j++;
+    const block = masked.slice(i + 1, j).filter((l) => l.trim() !== "");
+    const isRecord =
+      j < masked.length && block.length > 0 && block.every((l) => YAMLISH_LINE.test(l.trimEnd()));
+    if (!isRecord) {
+      i++;
+      continue;
+    }
+    bounds.push({ open: i, close: j });
+    i = j + 1;
   }
 
   const records: RawRecord[] = [];
-  for (let k = 0; k + 1 < fences.length; k += 2) {
-    const open = fences[k]!;
-    const close = fences[k + 1]!;
-    const yamlText = lines.slice(open + 1, close).join("\n");
-    const nextOpen = fences[k + 2] ?? lines.length;
-    const body = lines.slice(close + 1, nextOpen).join("\n").trim();
+  for (let k = 0; k < bounds.length; k++) {
+    const { open, close } = bounds[k]!;
+    const yamlText = original.slice(open + 1, close).join("\n");
+    const nextOpen = bounds[k + 1]?.open ?? original.length;
+    const body = original.slice(close + 1, nextOpen).join("\n").trim();
 
     let data: Record<string, YamlValue> = {};
     let parseError: string | undefined;
@@ -116,7 +145,11 @@ export function validateRecord(raw: RawRecord): ValidatedRecord {
     issues.push({ level: "warn", code, message, line: raw.line });
 
   if (raw.parseError) {
+    // Field-level checks against an empty map would add seven "missing field"
+    // errors that are pure noise next to the actual problem; report only the
+    // parse failure so the fix is obvious.
     err("frontmatter.parse", `frontmatter did not parse: ${raw.parseError}`);
+    return { raw, issues };
   }
 
   const d = raw.data;

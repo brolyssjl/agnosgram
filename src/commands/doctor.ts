@@ -72,13 +72,21 @@ function checkBrokenLinks(file: StoreFile, findings: Finding[]): void {
   }
 }
 
-function looksLikePath(s: string): boolean {
-  return /^[\w./-]+$/.test(s) && (s.includes("/") || s.includes("."));
-}
-
 export function collectFindings(root: string, config: AgnosgramConfig): Finding[] {
   const findings: Finding[] = [];
   const today = todayIso();
+
+  // 0. Format version. The freeze (DEC-0002) promises a breaking change would
+  // arrive as `version: 2`; validating a newer store as if it were v1 would
+  // defeat that, so refuse loudly instead of guessing.
+  if (config.version !== 1) {
+    findings.push({
+      level: "error",
+      code: "config.version.unsupported",
+      file: ".agnosgram/config.yml",
+      message: `config declares format version ${config.version}; this release only understands version 1`,
+    });
+  }
   const store = readStore(root);
   const known: KnownRecord[] = [];
   const idLocations = new Map<string, Array<{ file: string; line: number }>>();
@@ -184,16 +192,31 @@ export function collectFindings(root: string, config: AgnosgramConfig): Finding[
         message: `not verified in ${age} days (limit ${config.staleness_days}); re-check and bump last_verified`,
       });
     }
-    // source path integrity for records.
+    // source path integrity for records. Line anchors (#L88) break on the next
+    // append, so they are flagged; the path part must exist under .agnosgram/,
+    // where an archived journal month (journal/archive/) still counts.
     const src = rec.frontmatter.source;
-    if (looksLikePath(src) && !pathExists(join(memoryDir(root), src))) {
+    const hash = src.indexOf("#");
+    const srcPath = hash === -1 ? src : src.slice(0, hash);
+    if (hash !== -1) {
+      findings.push({
+        level: "warn",
+        code: "source.anchor",
+        file: rec.file,
+        line: rec.line,
+        id: rec.frontmatter.id,
+        message: `source "${src}" uses a line anchor, which breaks on the next append; reference the whole file`,
+      });
+    }
+    const candidates = [srcPath, srcPath.replace(/^journal\//, "journal/archive/")];
+    if (!candidates.some((c) => c !== "" && pathExists(join(memoryDir(root), c)))) {
       findings.push({
         level: "warn",
         code: "source.missing",
         file: rec.file,
         line: rec.line,
         id: rec.frontmatter.id,
-        message: `source "${src}" does not exist under .agnosgram/`,
+        message: `source "${src}" does not exist under .agnosgram/ (journal/archive/ was also checked)`,
       });
     }
   }
@@ -208,7 +231,7 @@ export function collectFindings(root: string, config: AgnosgramConfig): Finding[
       findings.push({
         level: "warn",
         code: "budget.over",
-        file: join(".agnosgram", rel),
+        file: `.agnosgram/${rel}`,
         message: `~${tokens} tokens over the ${budget}-token budget; distill or split`,
       });
     }
@@ -223,7 +246,7 @@ export function collectFindings(root: string, config: AgnosgramConfig): Finding[
         findings.push({
           level: "warn",
           code: "file.stale",
-          file: join(".agnosgram", row.file),
+          file: `.agnosgram/${row.file}`,
           message: `freshness table: not verified in ${age} days (limit ${config.staleness_days})`,
         });
       }
