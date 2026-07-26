@@ -2,9 +2,9 @@
 
 _Small and volatile. Overwrite freely; history lives in the journal._
 
-- **Focus:** Milestone 2 complete (schema + validator, `doctor`, `distill`, `bootstrap`, format freeze v1). Targets `0.5.0` beta.
-- **In flight:** branch `milestone-2-anti-rot` (commits landed; not yet merged to `main` / no PR opened per owner).
+- **Focus:** Milestone 2 merged (PR #2, incl. review fixes) and released as `v0.5.0` on GitHub. Format frozen at v1.
+- **In flight:** none.
 - **Next:** Milestone 3 - `advise` (contradiction-catcher), `pack`, `show`, pluggable JSON/TOON serializer.
-- **Blocked on:** nothing. (npm name reservation for `agnosgram` deferred by owner; not blocking.)
+- **Blocked on:** nothing. (npm name reservation + first publish still deferred by owner; would now ship `0.5.0`, not `0.2.0`.)
 
-_Last updated: 2026-07-23_
+_Last updated: 2026-07-26_
