@@ -104,6 +104,16 @@ The whole-file counterpart to per-record `last_verified`. Rows look like:
 
 `doctor` flags any row whose date is older than `staleness_days`.
 
+## `advise` reports are not store format
+
+`agnosgram advise --validate` reads and checks a JSON report (`agnosgram_advise`,
+see [docs/advise.md](advise.md)) that an agent writes to `<plan>.advise.json` (or
+`--out <path>`). That file is a **CLI output contract** - versioned on its own
+(`agnosgram_advise: 1`), shared with Gate's `plan.advise` check - not part of the
+`.agnosgram/` store described on this page. It is never written under
+`.agnosgram/`, has no frontmatter, and this document's format-version-1 guarantee
+does not cover it; the store format stays untouched by `advise`.
+
 ## Compatibility guarantee
 
 This is **format version 1**. Later releases may add optional fields or files; they

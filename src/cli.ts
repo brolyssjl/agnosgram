@@ -10,7 +10,7 @@ import { runPack } from "./commands/pack.js";
 import { runShow } from "./commands/show.js";
 import { UserError, warn } from "./core/output.js";
 
-const VERSION = "0.5.0";
+const VERSION = "0.8.0";
 
 const HELP = `agnosgram — agent-agnostic, per-project memory (plain Markdown in your repo)
 
@@ -18,10 +18,14 @@ Usage:
   agnosgram init [--adapt <list|none>] [--force] [--no-journal-commit] [--json]
   agnosgram adapt [claude|cursor|agents ...] [--all] [--refresh] [--json]
   agnosgram log   [--did .. --learned .. --decided .. --avoid .. --next ..]
-                  [--agent <name>] [--branch <name>] [--stdin] [--json]
-  agnosgram doctor [--strict] [--json]
+                  [--agent <name>] [--branch <name>] [--stdin] [--format json|toon]
+  agnosgram doctor [--strict] [--format json|toon]
   agnosgram distill [--validate <file>] [--archive <YYYY-MM>] [--json]
   agnosgram bootstrap [--json]
+  agnosgram show <topic> [--type pitfall|convention|decision] [--format json|toon]
+  agnosgram pack [--scope <tag>] [--budget <n>] [--format json|toon]
+  agnosgram advise <plan-path> [--out <file>] [--format json|toon]
+  agnosgram advise --validate <report-file> [--strict] [--format json|toon]
 
 Commands:
   init      Scaffold .agnosgram/, detect SDD frameworks + agents, write adapters.
@@ -30,10 +34,14 @@ Commands:
   doctor    Lint the store: schema, staleness, budgets, links, ids, safety.
   distill   Emit a compaction prompt; validate a distilled result; archive months.
   bootstrap Emit a prompt seeding context/ from an existing codebase.
+  show      Print records matching a topic (id, scope tag, or type).
+  pack      Token-budgeted context bundle: status + lessons (+ decisions if scoped).
+  advise    Emit a plan-vs-memory contradiction review prompt; --validate a report.
 
 Global:
   -h, --help       Show this help.
   -v, --version    Print version.
+  --format <fmt>   json (default with --json) or toon, where a command supports it.
 
 Docs: https://github.com/agnosgram/agnosgram
 `;
