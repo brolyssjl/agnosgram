@@ -47,3 +47,66 @@ export function allScopes(root: string): string[] {
   }
   return [...scopes].sort();
 }
+
+/** Render a record's frontmatter + body as it looks on disk (canonical form). */
+export function renderRecordBlock(r: StoreRecord): string {
+  const fm = r.frontmatter;
+  const lines = [
+    `id: ${fm.id}`,
+    `type: ${fm.type}`,
+    `scope: [${fm.scope.join(", ")}]`,
+    `confidence: ${fm.confidence}`,
+    `created: ${fm.created}`,
+    `last_verified: ${fm.last_verified}`,
+    `source: ${fm.source}`,
+  ];
+  if (fm.supersedes && fm.supersedes.length > 0) {
+    lines.push(`supersedes: [${fm.supersedes.join(", ")}]`);
+  }
+  return `---\n${lines.join("\n")}\n---\n${r.body}`;
+}
+
+/**
+ * Structured shape for a record in `--format json|toon` output: a flat object
+ * so an array of these stays TOON-tabular (a nested `scope`/`supersedes` array
+ * would disqualify the tabular encoding) - list fields join with commas.
+ */
+export interface FlatRecord {
+  id: string;
+  type: string;
+  scope: string;
+  confidence: string;
+  created: string;
+  last_verified: string;
+  source: string;
+  supersedes: string;
+  file: string;
+  body: string;
+}
+
+export function toFlatRecord(r: StoreRecord): FlatRecord {
+  return {
+    id: r.frontmatter.id,
+    type: r.frontmatter.type,
+    scope: r.frontmatter.scope.join(","),
+    confidence: r.frontmatter.confidence,
+    created: r.frontmatter.created,
+    last_verified: r.frontmatter.last_verified,
+    source: r.frontmatter.source,
+    supersedes: (r.frontmatter.supersedes ?? []).join(","),
+    file: r.file,
+    body: r.body,
+  };
+}
+
+/** Confidence desc, last_verified desc, id asc - the shared record ordering (`show`, `pack`). */
+export function compareRecords(a: StoreRecord, b: StoreRecord): number {
+  const rank: Record<string, number> = { high: 3, medium: 2, low: 1 };
+  const ca = rank[a.frontmatter.confidence] ?? 0;
+  const cb = rank[b.frontmatter.confidence] ?? 0;
+  if (ca !== cb) return cb - ca;
+  if (a.frontmatter.last_verified !== b.frontmatter.last_verified) {
+    return a.frontmatter.last_verified < b.frontmatter.last_verified ? 1 : -1;
+  }
+  return a.frontmatter.id.localeCompare(b.frontmatter.id);
+}

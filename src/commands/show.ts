@@ -11,7 +11,13 @@
 import { parseArgs } from "node:util";
 import { info, printStructured, UserError, warn } from "../core/output.js";
 import { findProjectRoot, hasStore } from "../core/paths.js";
-import { allScopes, loadRecords, type StoreRecord } from "../core/records.js";
+import {
+  allScopes,
+  loadRecords,
+  renderRecordBlock,
+  toFlatRecord,
+  type StoreRecord,
+} from "../core/records.js";
 import { resolveFormat } from "../core/serialize.js";
 
 const KNOWN_TYPES = ["pitfall", "convention", "decision"];
@@ -40,22 +46,6 @@ export function matchRecords(
   return [];
 }
 
-function renderFrontmatter(fm: StoreRecord["frontmatter"]): string {
-  const lines = [
-    `id: ${fm.id}`,
-    `type: ${fm.type}`,
-    `scope: [${fm.scope.join(", ")}]`,
-    `confidence: ${fm.confidence}`,
-    `created: ${fm.created}`,
-    `last_verified: ${fm.last_verified}`,
-    `source: ${fm.source}`,
-  ];
-  if (fm.supersedes && fm.supersedes.length > 0) {
-    lines.push(`supersedes: [${fm.supersedes.join(", ")}]`);
-  }
-  return lines.join("\n");
-}
-
 /** Human rendering: records as they look on disk, grouped under a per-file heading. */
 function renderHuman(records: StoreRecord[]): string {
   if (records.length === 0) return "";
@@ -66,42 +56,9 @@ function renderHuman(records: StoreRecord[]): string {
       currentFile = r.file;
       lines.push(`## ${currentFile}`, "");
     }
-    lines.push("---", renderFrontmatter(r.frontmatter), "---", r.body, "");
+    lines.push(renderRecordBlock(r), "");
   }
   return lines.join("\n").trimEnd() + "\n";
-}
-
-/**
- * Structured shape for `--format json|toon`: a uniform array of flat objects,
- * so the array is TOON-friendly (a nested `scope`/`supersedes` array would
- * disqualify the tabular encoding) - list fields are joined with commas.
- */
-export interface ShowRecordOut {
-  id: string;
-  type: string;
-  scope: string;
-  confidence: string;
-  created: string;
-  last_verified: string;
-  source: string;
-  supersedes: string;
-  file: string;
-  body: string;
-}
-
-function toStructured(records: StoreRecord[]): ShowRecordOut[] {
-  return records.map((r) => ({
-    id: r.frontmatter.id,
-    type: r.frontmatter.type,
-    scope: r.frontmatter.scope.join(","),
-    confidence: r.frontmatter.confidence,
-    created: r.frontmatter.created,
-    last_verified: r.frontmatter.last_verified,
-    source: r.frontmatter.source,
-    supersedes: (r.frontmatter.supersedes ?? []).join(","),
-    file: r.file,
-    body: r.body,
-  }));
 }
 
 export function runShow(argv: string[]): void {
@@ -149,6 +106,6 @@ export function runShow(argv: string[]): void {
   if (format === "human") {
     info(renderHuman(matches).trimEnd());
   } else {
-    printStructured(toStructured(matches), format);
+    printStructured(matches.map(toFlatRecord), format);
   }
 }

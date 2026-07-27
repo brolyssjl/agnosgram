@@ -81,12 +81,16 @@ sdd:
   speckit: auto
   bmad: auto
   agentos: auto
+pack_budget: 2000          # optional; default token budget for `agnosgram pack`
 ```
 
 Unknown keys are ignored on load, so future versions can add keys without breaking
 older stores. Budgets are checked with a dependency-free token *estimate* (it errs
 high so `doctor` warns early), not a real tokenizer - the zero-runtime-dependency
-guarantee (DEC-0001) takes priority over exact counts.
+guarantee (DEC-0001) takes priority over exact counts. `pack_budget` (Milestone 3)
+is one such additive key: it only sets the default `--budget` for `agnosgram pack`
+and is not part of the frozen directory layout or record schema - a store without
+it just uses the built-in default (2000).
 
 ## Freshness table (`MEMORY.md`)
 
