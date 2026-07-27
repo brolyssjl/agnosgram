@@ -5,8 +5,9 @@ import { daysBetween, todayIso } from "../core/dates.js";
 import { extractRecords, validateRecord, type Frontmatter } from "../core/frontmatter.js";
 import { parseFreshnessTable } from "../core/freshness.js";
 import { INJECTION_PATTERNS, scanPatterns, SECRET_PATTERNS } from "../core/lint.js";
-import { info, printJson, UserError } from "../core/output.js";
+import { info, printStructured, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore, memoryDir } from "../core/paths.js";
+import { resolveFormat } from "../core/serialize.js";
 import { pathExists, readStore, type StoreFile } from "../core/store.js";
 import { estimateTokens } from "../core/tokens.js";
 
@@ -303,6 +304,7 @@ export function runDoctor(argv: string[]): void {
     allowPositionals: false,
     options: {
       json: { type: "boolean", default: false },
+      format: { type: "string" },
       strict: { type: "boolean", default: false },
     },
   });
@@ -313,11 +315,12 @@ export function runDoctor(argv: string[]): void {
   }
 
   const report = runDoctorChecks(root);
+  const format = resolveFormat(values);
 
-  if (values.json) {
-    printJson(report);
-  } else {
+  if (format === "human") {
     renderReport(report);
+  } else {
+    printStructured(report, format);
   }
 
   if (report.errors > 0 || (values.strict && report.warnings > 0)) {
