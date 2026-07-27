@@ -5,6 +5,7 @@ import { runDistill } from "./commands/distill.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runLog } from "./commands/log.js";
+import { runShow } from "./commands/show.js";
 import { UserError, warn } from "./core/output.js";
 
 const VERSION = "0.5.0";
@@ -67,6 +68,9 @@ function main(): void {
         break;
       case "bootstrap":
         runBootstrap(rest);
+        break;
+      case "show":
+        runShow(rest);
         break;
       default:
         warn(`Unknown command: ${command}\n`);
