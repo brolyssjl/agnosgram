@@ -22,5 +22,5 @@ A fact belongs in exactly one place; the other side links to it.
 | context/architecture.md | 2026-07-21 | 1500 tokens |
 | context/stack.md | 2026-07-21 | 800 tokens |
 | context/domain.md | 2026-07-21 | 1000 tokens |
-| lessons/pitfalls.md | 2026-07-21 | 1000 tokens |
+| lessons/pitfalls.md | 2026-07-27 | 1000 tokens |
 | lessons/conventions.md | 2026-07-23 | 1000 tokens |

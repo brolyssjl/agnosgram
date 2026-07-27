@@ -22,10 +22,14 @@ type: pitfall
 scope: [tooling]
 confidence: high
 created: 2026-07-21
-last_verified: 2026-07-21
+last_verified: 2026-07-27
 source: journal/2026-07.md
 ---
-Do not assert the design-session TOON "+5% on small objects" finding against
-`bench/bench.mjs` - its serializer is a toy, not real TOON, and cannot reproduce
-that overhead. The bench only honestly guards the uniform-array (tabular) win.
-Faithful small-object numbers need the real `@toon-format` encoder (Milestone 2).
+RESOLVED (Milestone 3): `bench/bench.mjs` now measures the faithful
+`@toon-format/toon` encoder (exact-pinned dev dep) alongside our hand-rolled
+runtime encoder (`src/core/toon.ts`), so small-object numbers are honest -
+see the `record` row (a realistic small object loses a small amount, matching
+the design-session finding) and the `--check` drift guard between the two
+encoders. Kept for history: earlier in the project, `bench/bench.mjs` used a
+toy serializer that could only honestly guard the uniform-array (tabular)
+win, not small-object overhead.
