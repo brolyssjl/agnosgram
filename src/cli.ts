@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { runAdapt } from "./commands/adapt.js";
+import { runAdvise } from "./commands/advise.js";
 import { runBootstrap } from "./commands/bootstrap.js";
 import { runDistill } from "./commands/distill.js";
 import { runDoctor } from "./commands/doctor.js";
@@ -75,6 +76,9 @@ function main(): void {
         break;
       case "pack":
         runPack(rest);
+        break;
+      case "advise":
+        runAdvise(rest);
         break;
       default:
         warn(`Unknown command: ${command}\n`);
