@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
@@ -98,4 +98,36 @@ test("pack default budget is 2000 when nothing overrides it", () => {
   runPack(["--json"]);
   const parsed = JSON.parse(out);
   assert.equal(parsed.budget, 2000);
+});
+
+test("pack throws a guidance-carrying UserError when state/status.md is missing", () => {
+  unlinkSync(join(root, ".agnosgram", "state", "status.md"));
+  assert.throws(() => runPack([]), /status\.md.*doctor|init/s);
+});
+
+test("pack tokens stay within budget for a normal case, accounting for headings/joiners/footer", () => {
+  // Enough records that the greedy loop must omit several, exercising the
+  // heading + joiner + footer accounting, not just a single dropped record.
+  const many = Array.from({ length: 20 }, (_, i) => {
+    const id = `LES-1${String(i).padStart(2, "0")}`;
+    return rec(id, "pitfall", "core", `Body of ${id}, padded so records cost a realistic number of tokens each.`);
+  }).join("\n");
+  writeFileSync(join(root, ".agnosgram", "lessons", "pitfalls.md"), `# Pitfalls\n\n${many}\n`);
+
+  runPack(["--budget", "200", "--json"]);
+  const parsed = JSON.parse(out);
+  assert.ok(parsed.tokens <= parsed.budget, `expected tokens (${parsed.tokens}) <= budget (${parsed.budget})`);
+  assert.ok(parsed.omitted.length > 0, "expected this store to overflow a 200-token budget");
+});
+
+test("pack's omitted footer is capped and summarizes the rest instead of listing every record", () => {
+  const many = Array.from({ length: 20 }, (_, i) => {
+    const id = `LES-2${String(i).padStart(2, "0")}`;
+    return rec(id, "pitfall", "core", `Body of ${id}, padded so records cost a realistic number of tokens each.`);
+  }).join("\n");
+  writeFileSync(join(root, ".agnosgram", "lessons", "pitfalls.md"), `# Pitfalls\n\n${many}\n`);
+
+  runPack(["--budget", "150"]);
+  assert.ok(out.includes("## Omitted (budget)"));
+  assert.ok(/\.\.\.and \d+ more/.test(out), "expected a capped omitted footer with an '...and N more' tail");
 });

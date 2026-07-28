@@ -9,18 +9,17 @@
  *   3. type name (`pitfall` | `convention` | `decision`)
  */
 import { parseArgs } from "node:util";
+import { KNOWN_TYPES } from "../core/frontmatter.js";
 import { info, printStructured, UserError, warn } from "../core/output.js";
 import { findProjectRoot, hasStore } from "../core/paths.js";
 import {
-  allScopes,
+  allScopesFrom,
   loadRecords,
   renderRecordBlock,
   toFlatRecord,
   type StoreRecord,
 } from "../core/records.js";
 import { resolveFormat } from "../core/serialize.js";
-
-const KNOWN_TYPES = ["pitfall", "convention", "decision"];
 
 export function matchRecords(
   records: StoreRecord[],
@@ -38,7 +37,7 @@ export function matchRecords(
   );
   if (byScope.length > 0) return byScope;
 
-  if ((KNOWN_TYPES as string[]).includes(topicLower)) {
+  if ((KNOWN_TYPES as readonly string[]).includes(topicLower)) {
     const byType = pool.filter((r) => r.frontmatter.type === topicLower);
     if (byType.length > 0) return byType;
   }
@@ -79,7 +78,7 @@ export function runShow(argv: string[]): void {
     throw new UserError("Usage: agnosgram show <topic> [--type pitfall|convention|decision]");
   }
 
-  if (values.type !== undefined && !(KNOWN_TYPES as string[]).includes(values.type)) {
+  if (values.type !== undefined && !(KNOWN_TYPES as readonly string[]).includes(values.type)) {
     throw new UserError(`--type must be one of ${KNOWN_TYPES.join(", ")}, got "${values.type}"`);
   }
 
@@ -92,13 +91,22 @@ export function runShow(argv: string[]): void {
   const matches = matchRecords(records, topic.trim(), values.type);
 
   if (matches.length === 0) {
-    const scopes = allScopes(root);
-    warn(`No records match "${topic}".`);
-    warn(
-      scopes.length > 0
-        ? `Known scopes: ${scopes.join(", ")}. Types: ${KNOWN_TYPES.join(", ")}.`
-        : `Types: ${KNOWN_TYPES.join(", ")}. (No scope tags in the store yet.)`,
-    );
+    if (format === "human") {
+      // Human hints go to stderr so a downstream pipe consuming stdout
+      // never sees them mixed into the (empty) result.
+      const scopes = allScopesFrom(records);
+      warn(`No records match "${topic}".`);
+      warn(
+        scopes.length > 0
+          ? `Known scopes: ${scopes.join(", ")}. Types: ${KNOWN_TYPES.join(", ")}.`
+          : `Types: ${KNOWN_TYPES.join(", ")}. (No scope tags in the store yet.)`,
+      );
+    } else {
+      // Structured modes always print a well-formed payload, even when
+      // empty, so a caller parsing stdout never sees a blank/absent
+      // response on a miss - only the exit code signals "no match".
+      printStructured(matches.map(toFlatRecord), format);
+    }
     process.exitCode = 1;
     return;
   }

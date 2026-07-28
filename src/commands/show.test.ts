@@ -101,3 +101,19 @@ test("missing topic argument throws a usage error", () => {
 test("invalid --type throws a usage error", () => {
   assert.throws(() => runShow(["tooling", "--type", "bogus"]), /--type must be one of/);
 });
+
+test("--format json on no match prints an empty JSON array to stdout and still exits 1", () => {
+  runShow(["nonexistent-topic", "--format", "json"]);
+  assert.equal(process.exitCode, 1);
+  const parsed = JSON.parse(out);
+  assert.deepEqual(parsed, []);
+  // Structured mode never writes the human hints to stderr.
+  assert.equal(errOut, "");
+});
+
+test("--format toon on no match prints an empty TOON array to stdout and still exits 1", () => {
+  runShow(["nonexistent-topic", "--format", "toon"]);
+  assert.equal(process.exitCode, 1);
+  assert.ok(out.trim().length > 0, "expected a non-empty structured payload on stdout");
+  assert.equal(errOut, "");
+});
