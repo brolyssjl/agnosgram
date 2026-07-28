@@ -11,7 +11,7 @@
  * only shape and provenance.
  */
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { isValidIsoDate } from "../core/dates.js";
 import { info, printStructured, UserError } from "../core/output.js";
@@ -31,8 +31,10 @@ function digestTable(records: StoreRecord[]): string {
     .slice()
     .sort((a, b) => a.frontmatter.id.localeCompare(b.frontmatter.id))
     .map((r) => {
-      const snippet = r.body.replace(/\s+/g, " ").trim().slice(0, 80);
-      return `| ${r.frontmatter.id} | ${r.frontmatter.type} | ${r.frontmatter.scope.join(",")} | ${r.frontmatter.confidence} | ${r.frontmatter.last_verified} | ${snippet}${snippet.length === 80 ? "..." : ""} |`;
+      const normalized = r.body.replace(/\s+/g, " ").trim();
+      const truncated = normalized.length > 80;
+      const snippet = normalized.slice(0, 80).replace(/\|/g, "\\|");
+      return `| ${r.frontmatter.id} | ${r.frontmatter.type} | ${r.frontmatter.scope.join(",")} | ${r.frontmatter.confidence} | ${r.frontmatter.last_verified} | ${snippet}${truncated ? "..." : ""} |`;
     });
   const header = "| id | type | scope | confidence | last_verified | excerpt |\n|---|---|---|---|---|---|";
   return rows.length > 0 ? `${header}\n${rows.join("\n")}` : `${header}\n_(store has no records yet)_`;
@@ -130,6 +132,31 @@ interface ValidateResult {
   warnings: number;
   issues: ValidateIssue[];
   report: unknown;
+  /**
+   * Mechanically-derived clearness: true only when no blocker-severity
+   * contradiction was validated AND the report's own `clear` field says
+   * `true`. This is the trustworthy signal for `--strict` - never the
+   * report's self-declared `clear` alone, since a report can lie about it.
+   */
+  clear: boolean;
+}
+
+/** Resolve a plan path the same way a person running the CLI would find it:
+ * cwd-relative first (mirrors how `reportPath` below resolves via bare
+ * `existsSync`/`readFileSync`, and honors absolute paths via `resolve`),
+ * then falling back to root-relative so `--validate` still works from a
+ * subdirectory of the project. */
+function resolvePlanFile(root: string, planField: string): string | undefined {
+  const cwdRelative = resolve(planField);
+  if (existsSync(cwdRelative)) return cwdRelative;
+  const rootRelative = join(root, planField);
+  if (existsSync(rootRelative)) return rootRelative;
+  return undefined;
+}
+
+/** `typeof v === "string" ? v : undefined`, spelled once. */
+function asString(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
 }
 
 function validateReport(root: string, reportPath: string): ValidateResult {
@@ -146,12 +173,12 @@ function validateReport(root: string, reportPath: string): ValidateResult {
     report = JSON.parse(readFileSync(reportPath, "utf8"));
   } catch (e) {
     err("json.parse", `report is not valid JSON: ${e instanceof Error ? e.message : String(e)}`);
-    return { file: reportPath, ok: false, errors: 1, warnings: 0, issues, report: null };
+    return { file: reportPath, ok: false, errors: 1, warnings: 0, issues, report: null, clear: false };
   }
 
   if (report === null || typeof report !== "object" || Array.isArray(report)) {
     err("schema.shape", "report must be a JSON object");
-    return { file: reportPath, ok: false, errors: 1, warnings: 0, issues, report };
+    return { file: reportPath, ok: false, errors: 1, warnings: 0, issues, report, clear: false };
   }
 
   if (report.agnosgram_advise !== ADVISE_SCHEMA_VERSION) {
@@ -161,10 +188,10 @@ function validateReport(root: string, reportPath: string): ValidateResult {
     );
   }
 
-  const planField = typeof report.plan === "string" ? report.plan : undefined;
+  const planField = asString(report.plan);
   if (planField === undefined) err("schema.plan", 'missing or non-string "plan"');
 
-  const generated = typeof report.generated === "string" ? report.generated : undefined;
+  const generated = asString(report.generated);
   if (generated === undefined || !isValidIsoDate(generated)) {
     err("schema.generated", '"generated" must be a YYYY-MM-DD date');
   }
@@ -174,6 +201,8 @@ function validateReport(root: string, reportPath: string): ValidateResult {
     : [];
   if (!Array.isArray(report.checked_ids)) {
     err("schema.checked_ids", '"checked_ids" must be an array of record ids');
+  } else if (report.checked_ids.some((v) => typeof v !== "string")) {
+    err("schema.checked_ids", '"checked_ids" must contain only strings; found a non-string entry');
   }
 
   const records = loadRecords(root);
@@ -197,9 +226,9 @@ function validateReport(root: string, reportPath: string): ValidateResult {
   // be run from a different cwd than the report's provenance).
   let planText: string | undefined;
   if (planField !== undefined) {
-    const abs = join(root, planField);
-    if (existsSync(abs)) {
-      planText = readFileSync(abs, "utf8");
+    const resolvedPlan = resolvePlanFile(root, planField);
+    if (resolvedPlan) {
+      planText = readFileSync(resolvedPlan, "utf8");
     } else {
       warnIssue("coverage.plan_missing", `plan file "${planField}" was not found on disk; excerpt checks skipped`);
     }
@@ -208,7 +237,7 @@ function validateReport(root: string, reportPath: string): ValidateResult {
   let blockerSeen = false;
   for (const [i, c] of contradictions.entries()) {
     const where = `contradictions[${i}]`;
-    const recordId = typeof c.record_id === "string" ? c.record_id : undefined;
+    const recordId = asString(c.record_id);
     if (recordId === undefined) {
       err(`schema.${where}.record_id`, `${where}: missing or non-string "record_id"`);
     }
@@ -230,14 +259,14 @@ function validateReport(root: string, reportPath: string): ValidateResult {
       blockerSeen = true;
     }
 
-    const planExcerpt = typeof c.plan_excerpt === "string" ? c.plan_excerpt : undefined;
+    const planExcerpt = asString(c.plan_excerpt);
     if (!planExcerpt) {
       err(`schema.${where}.plan_excerpt`, `${where}: missing or non-string "plan_excerpt"`);
     } else if (planText !== undefined && !planText.includes(planExcerpt)) {
       warnIssue("excerpt.plan_mismatch", `${where}: plan_excerpt is not a substring of "${planField}"`);
     }
 
-    const recordExcerpt = typeof c.record_excerpt === "string" ? c.record_excerpt : undefined;
+    const recordExcerpt = asString(c.record_excerpt);
     if (!recordExcerpt) {
       err(`schema.${where}.record_excerpt`, `${where}: missing or non-string "record_excerpt"`);
     } else if (record && !record.body.includes(recordExcerpt)) {
@@ -247,7 +276,7 @@ function validateReport(root: string, reportPath: string): ValidateResult {
       );
     }
 
-    const confidence = typeof c.confidence === "string" ? c.confidence : undefined;
+    const confidence = asString(c.confidence);
     if (!confidence || !(KNOWN_CONFIDENCE as readonly string[]).includes(confidence)) {
       err(`schema.${where}.confidence`, `${where}: "confidence" must be one of ${KNOWN_CONFIDENCE.join(", ")}`);
     } else if (record && confidence !== record.frontmatter.confidence) {
@@ -257,7 +286,7 @@ function validateReport(root: string, reportPath: string): ValidateResult {
       );
     }
 
-    const lastVerified = typeof c.last_verified === "string" ? c.last_verified : undefined;
+    const lastVerified = asString(c.last_verified);
     if (!lastVerified || !isValidIsoDate(lastVerified)) {
       err(`schema.${where}.last_verified`, `${where}: "last_verified" must be a YYYY-MM-DD date`);
     } else if (record && lastVerified !== record.frontmatter.last_verified) {
@@ -272,13 +301,18 @@ function validateReport(root: string, reportPath: string): ValidateResult {
     }
   }
 
-  if (typeof report.clear !== "boolean") {
+  const declaredClear = typeof report.clear === "boolean" ? report.clear : undefined;
+  if (declaredClear === undefined) {
     err("schema.clear", '"clear" must be a boolean');
   } else {
-    if (report.clear === true && blockerSeen) {
-      warnIssue("consistency.clear", '"clear" is true but a blocker contradiction is present');
+    // A blocker alongside a self-declared `clear: true` is not just
+    // inconsistent, it is the exact shape a Gate consumer trusting `clear`
+    // would be fooled by - promote it to an error so `--validate` (without
+    // even `--strict`) already catches it.
+    if (declaredClear === true && blockerSeen) {
+      err("consistency.clear", '"clear" is true but a blocker contradiction is present');
     }
-    if (report.clear === false && contradictions.length === 0) {
+    if (declaredClear === false && contradictions.length === 0) {
       warnIssue("consistency.clear", '"clear" is false but no contradictions were reported');
     }
   }
@@ -297,7 +331,12 @@ function validateReport(root: string, reportPath: string): ValidateResult {
 
   const errors = issues.filter((i) => i.level === "error").length;
   const warnings = issues.filter((i) => i.level === "warn").length;
-  return { file: reportPath, ok: errors === 0, errors, warnings, issues, report };
+  // Mechanical clearness: never trust the report's self-declared `clear`
+  // alone - a blocker-severity contradiction always means "not clear",
+  // regardless of what the field says (that inconsistency is already an
+  // error above, but `--strict` must not depend on catching it).
+  const clear = declaredClear === true && !blockerSeen;
+  return { file: reportPath, ok: errors === 0, errors, warnings, issues, report, clear };
 }
 
 export function runAdvise(argv: string[]): void {
@@ -337,11 +376,7 @@ export function runAdvise(argv: string[]): void {
       info(`\n${result.file}: ${result.errors} error(s), ${result.warnings} warning(s).`);
     }
 
-    const reportClear =
-      result.report !== null &&
-      typeof result.report === "object" &&
-      (result.report as AdviseReport).clear === true;
-    if (result.errors > 0 || (values.strict && !reportClear)) {
+    if (result.errors > 0 || (values.strict && !result.clear)) {
       process.exitCode = 1;
     }
     return;

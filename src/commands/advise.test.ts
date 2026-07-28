@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
@@ -151,4 +151,78 @@ test("advise --validate on a missing file throws a usage error", () => {
 
 test("advise with no plan path throws a usage error", () => {
   assert.throws(() => runAdvise([]), /Usage: agnosgram advise/);
+});
+
+test("advise --validate errors (even without --strict) when clear:true coexists with a blocker", () => {
+  writeFileSync(join(root, "report.json"), JSON.stringify(validReport({ clear: true })));
+  runAdvise(["--validate", "report.json"]);
+  assert.equal(process.exitCode, 1);
+  assert.ok(out.includes("consistency.clear"));
+  assert.ok(out.includes("blocker contradiction is present"));
+});
+
+test("advise --validate --strict derives exit mechanically: blocker + clear:true still exits 1", () => {
+  writeFileSync(join(root, "report.json"), JSON.stringify(validReport({ clear: true })));
+  runAdvise(["--validate", "report.json", "--strict"]);
+  assert.equal(process.exitCode, 1);
+});
+
+test("advise --validate fails when checked_ids contains a non-string entry", () => {
+  writeFileSync(
+    join(root, "report.json"),
+    JSON.stringify(validReport({ checked_ids: ["LES-001", 42] })),
+  );
+  runAdvise(["--validate", "report.json"]);
+  assert.equal(process.exitCode, 1);
+  assert.ok(out.includes("schema.checked_ids"));
+});
+
+test("advise --validate falls back to a root-relative plan path from a subdirectory", () => {
+  // The report's `plan` field is project-root-relative (the normal shape,
+  // matching what `buildPrompt` documents); validating from a subdirectory
+  // means the cwd-relative lookup misses and must fall back to root-relative.
+  mkdirSync(join(root, "sub"), { recursive: true });
+  writeFileSync(join(root, "sub", "report.json"), JSON.stringify(validReport()));
+  process.chdir(join(root, "sub"));
+  runAdvise(["--validate", "report.json"]);
+  assert.ok(out.includes("valid"));
+  assert.ok(!out.includes("coverage.plan_missing"));
+});
+
+test("advise --validate resolves an absolute plan path", () => {
+  writeFileSync(
+    join(root, "report.json"),
+    JSON.stringify(validReport({ plan: join(root, "plan.md") })),
+  );
+  runAdvise(["--validate", "report.json"]);
+  assert.ok(out.includes("valid"));
+  assert.ok(!out.includes("coverage.plan_missing"));
+});
+
+test("advise digest table escapes pipes in body excerpts and only appends ... when truncated", () => {
+  writeFileSync(
+    join(root, ".agnosgram", "lessons", "pitfalls.md"),
+    `# Pitfalls\n\n---\nid: LES-002\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nShort body with a | pipe in it.\n`,
+  );
+  runAdvise(["plan.md"]);
+  // The literal "|" in the body must be escaped so it does not fracture the
+  // Markdown table into extra columns.
+  assert.ok(out.includes("a \\| pipe in it."));
+  // A short body (well under 80 chars after normalizing) must not get a
+  // trailing "..." - the old bug appended it whenever the slice happened
+  // to land at exactly 80 chars, even when nothing was actually cut.
+  const row = out.split("\n").find((l) => l.includes("LES-002"));
+  assert.ok(row);
+  assert.ok(!row!.includes("..."));
+});
+
+test("advise digest table appends ... only when the body actually exceeds 80 chars", () => {
+  writeFileSync(
+    join(root, ".agnosgram", "lessons", "pitfalls.md"),
+    `# Pitfalls\n\n---\nid: LES-003\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\n${"x".repeat(120)}\n`,
+  );
+  runAdvise(["plan.md"]);
+  const row = out.split("\n").find((l) => l.includes("LES-003"));
+  assert.ok(row);
+  assert.ok(row!.includes("..."));
 });
