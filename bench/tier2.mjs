@@ -18,6 +18,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { encode } from "gpt-tokenizer/model/gpt-4o";
+import { DEFAULT_PACK_BUDGET } from "../dist/commands/pack.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, "..", "dist", "cli.js");
@@ -26,9 +27,6 @@ const STORES = {
   "store-small": join(HERE, "fixtures", "store-small"),
   "store-large": join(HERE, "fixtures", "store-large"),
 };
-
-/** Matches the CLI's default pack budget (`src/commands/pack.ts`); fixtures set no `pack_budget` override. */
-const DEFAULT_PACK_BUDGET = 2000;
 
 const TASKS = {
   "session-start-pack": ["pack"],
@@ -39,14 +37,32 @@ const TASKS = {
 
 const FORMATS = ["human", "json", "toon"];
 
+// None of the tasks above are expected to exit 1 against these fixtures
+// (`show core` matches in both) - every measured row must be a clean
+// success with real output. A crash that happens to exit 1 (a thrown
+// UserError, say) must fail the bench run, not silently produce an
+// empty/0-token row that later divides its way into a vacuous NaN "pass".
 function run(cwd, args, format) {
   const argv = format === "human" ? args : [...args, "--format", format];
   const res = spawnSync(process.execPath, [CLI, ...argv], { cwd, encoding: "utf8" });
-  // Commands may legitimately exit 0 or 1 (e.g. `show` with no match); only a
-  // crash (anything else, or a thrown exception) should fail the bench run.
-  if (res.error || (res.status !== 0 && res.status !== 1)) {
+  if (res.error) {
+    throw new Error(`spawn failed for [${argv.join(" ")}] in ${cwd}: ${res.error}`);
+  }
+  if (res.status !== 0 && res.status !== 1) {
     throw new Error(
-      `spawn failed for [${argv.join(" ")}] in ${cwd} (status ${res.status}): ${res.stderr || res.error}`,
+      `CLI exited ${res.status} (crash) for [${argv.join(" ")}] in ${cwd}: ${res.stderr || "(no stderr)"}`,
+    );
+  }
+  if (res.status === 1) {
+    throw new Error(
+      `CLI exited 1 for [${argv.join(" ")}] in ${cwd}, but none of tier2's tasks are expected to fail ` +
+        `against these fixtures: ${res.stderr || "(no stderr)"}`,
+    );
+  }
+  if (!res.stdout || res.stdout.trim() === "") {
+    throw new Error(
+      `CLI produced empty stdout for [${argv.join(" ")}] in ${cwd} (status ${res.status}) - ` +
+        `an empty response from a task that isn't expected to fail means it crashed silently, not that it "measured 0 tokens".`,
     );
   }
   return res.stdout;
@@ -61,11 +77,21 @@ function round1(n) {
 }
 
 const rows = [];
+// Raw stdout per row, keyed by "store|task|format" - used internally by the
+// gates below (e.g. Gate 1 needs to re-serialize the JSON row compactly);
+// kept out of the public `rows` shape so the table/--json output stays lean.
+const rawText = new Map();
+
 for (const [store, storeRoot] of Object.entries(STORES)) {
   for (const [task, args] of Object.entries(TASKS)) {
     for (const format of FORMATS) {
       const out = run(storeRoot, args, format);
-      rows.push({ store, task, format, tokens: count(out) });
+      const tokens = count(out);
+      if (tokens === 0) {
+        throw new Error(`measured 0 tokens for ${store}/${task}/${format} - treating as a measurement failure`);
+      }
+      rawText.set(`${store}|${task}|${format}`, out);
+      rows.push({ store, task, format, tokens });
     }
   }
 }
@@ -91,10 +117,21 @@ if (args.has("--json")) {
 if (args.has("--check")) {
   const problems = [];
 
-  // Gate 1: TOON must meaningfully save tokens vs compact JSON for the
+  // Gate 1: TOON must meaningfully save tokens vs *compact* JSON for the
   // record-array-shaped tasks (pack, show) on both fixture stores. Excludes
   // advise-prep, which is a prose prompt wrapped in a single JSON/TOON string
   // field - format cannot help there, by design.
+  //
+  // The baseline is the JSON row's stdout re-serialized compactly
+  // (`JSON.stringify(JSON.parse(stdout))`), not the CLI's own `--format
+  // json` output, which is pretty-printed (`JSON.stringify(value, null,
+  // 2)`) and therefore inflated by indentation/newlines that no real caller
+  // would actually send an LLM - comparing TOON against that overstates the
+  // win. Measured against the compact baseline (2026-07-27, this fixture
+  // set): session-start-pack -16.1%/-23.1% (small/large), scoped-pack
+  // -10.7%/-18.1%, show -14.0%/-20.2%. The tightest of those is
+  // scoped-pack/store-small at -10.7%; the threshold below (-8%) keeps
+  // ~2.7 points of headroom under it while still gating a real win.
   const TABULAR_TASKS = ["session-start-pack", "scoped-pack", "show"];
   for (const store of Object.keys(STORES)) {
     for (const task of TABULAR_TASKS) {
@@ -104,10 +141,11 @@ if (args.has("--check")) {
         problems.push(`missing rows for ${store}/${task}`);
         continue;
       }
-      const deltaPct = round1(((t.tokens - j.tokens) / j.tokens) * 100);
-      if (deltaPct > -10) {
+      const compactJsonTokens = count(JSON.stringify(JSON.parse(rawText.get(`${store}|${task}|json`))));
+      const deltaPct = round1(((t.tokens - compactJsonTokens) / compactJsonTokens) * 100);
+      if (deltaPct > -8) {
         problems.push(
-          `expected TOON to save >=10% vs JSON on ${store}/${task}, got ${deltaPct}%`,
+          `expected TOON to save >=8% vs compact JSON on ${store}/${task}, got ${deltaPct}%`,
         );
       }
     }

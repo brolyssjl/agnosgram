@@ -143,6 +143,18 @@ if (args.has("--check")) {
     );
   }
 
+  // Gate 4 (shipped-encoder guarantee): a direct check on our own runtime
+  // encoder (not just its drift from the faithful one) - this is the old,
+  // simpler guarantee ("TOON saves >=15% on a uniform array") restated
+  // against `runtimeDeltaPct` so a regression in `src/core/toon.ts` itself
+  // fails here even if it happened to drift *toward* the faithful encoder's
+  // number rather than away from it (which Gate 3 alone would miss).
+  if (!lessons || lessons.runtimeDeltaPct > -15) {
+    problems.push(
+      `expected the shipped runtime encoder to save >=15% on the uniform \`lessons\` array, got ${lessons ? lessons.runtimeDeltaPct : "n/a"}%`,
+    );
+  }
+
   if (problems.length > 0) {
     process.stderr.write("bench regression:\n- " + problems.join("\n- ") + "\n");
     process.exit(1);
