@@ -13,16 +13,16 @@ export function journalMonth(d: Date = new Date()): string {
 }
 
 export function memoryMd(date: string): string {
-  return `# Project memory — read this first
+  return `# Project memory - read this first
 
 This is Agnosgram, an agent-agnostic memory store. It is plain Markdown, lives in
 the repo, and is reviewed in PRs like any other code.
 
 ## Protocol for agents
-1. Read \`state/status.md\` (always) — current focus and in-flight work.
+1. Read \`state/status.md\` (always) - current focus and in-flight work.
 2. Read \`lessons/pitfalls.md\` and \`lessons/conventions.md\` (always).
 3. Read \`context/*\` only for areas you will touch.
-4. Read \`decisions/\` only when about to change something architectural —
+4. Read \`decisions/\` only when about to change something architectural -
    check for an existing decision before proposing a change to settled matters.
 5. Before ending a session, append a journal entry with \`agnosgram log\`
    (or by hand into \`journal/${date.slice(0, 7)}.md\`).
@@ -60,7 +60,7 @@ export function architectureMd(): string {
   return `# Architecture
 
 _System shape, module map, key invariants. Keep it to what an agent must know
-before touching the code — not an exhaustive tour._
+before touching the code - not an exhaustive tour._
 
 ## Module map
 - _module → responsibility_
@@ -96,12 +96,12 @@ _Business/domain glossary and rules an agent won't infer from the code._
 }
 
 export function pitfallsMd(): string {
-  return `# Pitfalls — "do not do X"
+  return `# Pitfalls - "do not do X"
 
 _Distilled failures. Each entry carries frontmatter (see below) so \`doctor\` can
 track staleness. Add via \`distill\`; edit by hand when you learn something now._
 
-<!-- Example entry — replace with real lessons:
+<!-- Example entry - replace with real lessons:
 
 ---
 id: LES-001
@@ -112,18 +112,18 @@ created: ${isoDate()}
 last_verified: ${isoDate()}
 source: journal/${journalMonth()}.md
 ---
-Never do X in situation Y — it causes Z. (Cost us N hours on DATE.)
+Never do X in situation Y - it causes Z. (Cost us N hours on DATE.)
 
 -->
 `;
 }
 
 export function conventionsMd(): string {
-  return `# Conventions — "always do Y"
+  return `# Conventions - "always do Y"
 
 _Patterns that worked, worth repeating. Same frontmatter schema as pitfalls._
 
-<!-- Example entry — replace with real conventions:
+<!-- Example entry - replace with real conventions:
 
 ---
 id: CON-001
@@ -134,7 +134,7 @@ created: ${isoDate()}
 last_verified: ${isoDate()}
 source: journal/${journalMonth()}.md
 ---
-Always do Y when doing X — it keeps Z consistent.
+Always do Y when doing X - it keeps Z consistent.
 
 -->
 `;
@@ -166,7 +166,7 @@ Record a decision before changing something previously settled.
 }
 
 export function journalMd(month: string): string {
-  return `# Journal — ${month}
+  return `# Journal - ${month}
 
 Append-only. One file per month. Four fixed slots per entry so distillation is
 mechanical: \`Learned\` lines are lesson candidates, \`Decided\` lines are ADR

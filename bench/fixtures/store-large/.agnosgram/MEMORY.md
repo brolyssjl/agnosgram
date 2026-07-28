@@ -1,4 +1,4 @@
-# Project memory — read this first
+# Project memory - read this first
 
 Bench fixture store.
 
