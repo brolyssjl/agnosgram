@@ -5,7 +5,7 @@ import { loadConfig, type AgnosgramConfig } from "../core/config.js";
 import { extractRecords, KNOWN_CONFIDENCE, KNOWN_TYPES, validateRecord } from "../core/frontmatter.js";
 import { info, printJson, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore, memoryDir } from "../core/paths.js";
-import { readStore } from "../core/store.js";
+import { iterRawRecords } from "../core/records.js";
 import { estimateTokens } from "../core/tokens.js";
 
 /** Journal months present in the store (`journal/YYYY-MM.md`), oldest first. */
@@ -21,11 +21,9 @@ function journalMonths(root: string): string[] {
 /** Every record id already in the store, so the distiller allocates fresh ones. */
 function existingIds(root: string, exclude?: string): string[] {
   const ids: string[] = [];
-  for (const file of readStore(root)) {
-    if (!file.recordBearing || file.rel === exclude) continue;
-    for (const raw of extractRecords(file.text)) {
-      if (typeof raw.data.id === "string") ids.push(raw.data.id);
-    }
+  for (const { file, raw } of iterRawRecords(root)) {
+    if (file.rel === exclude) continue;
+    if (typeof raw.data.id === "string") ids.push(raw.data.id);
   }
   return ids.sort();
 }

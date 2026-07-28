@@ -5,8 +5,8 @@
  * schema validation). Invalid records are silently skipped here - `doctor` owns
  * diagnosing them, so retrieval never surfaces a half-parsed record.
  */
-import { extractRecords, validateRecord, type Frontmatter } from "./frontmatter.js";
-import { readStore } from "./store.js";
+import { extractRecords, validateRecord, type Frontmatter, type RawRecord } from "./frontmatter.js";
+import { readStore, type StoreFile } from "./store.js";
 
 export interface StoreRecord {
   frontmatter: Frontmatter;
@@ -19,33 +19,58 @@ export interface StoreRecord {
   line: number;
 }
 
-/** Every schema-valid record across the store's record-bearing files. */
-export function loadRecords(root: string): StoreRecord[] {
-  const out: StoreRecord[] = [];
+/**
+ * Low-level walk shared by every command that needs raw (unvalidated)
+ * records: the record-bearing files, split into their raw frontmatter
+ * blocks. `loadRecords` (below) and `distill.ts`'s `existingIds` both
+ * delegate to this instead of repeating `readStore -> recordBearing ->
+ * extractRecords`. `doctor` keeps its own walk since it also needs to
+ * report on invalid records, which this intentionally does not surface.
+ */
+export function* iterRawRecords(root: string): Generator<{ file: StoreFile; raw: RawRecord }> {
   for (const file of readStore(root)) {
     if (!file.recordBearing) continue;
     for (const raw of extractRecords(file.text)) {
-      const { frontmatter } = validateRecord(raw);
-      if (!frontmatter) continue;
-      out.push({
-        frontmatter,
-        body: raw.body,
-        file: file.rel,
-        storeRel: file.storeRel,
-        line: raw.line,
-      });
+      yield { file, raw };
     }
+  }
+}
+
+/** Every schema-valid record across the store's record-bearing files. */
+export function loadRecords(root: string): StoreRecord[] {
+  const out: StoreRecord[] = [];
+  for (const { file, raw } of iterRawRecords(root)) {
+    const { frontmatter } = validateRecord(raw);
+    if (!frontmatter) continue;
+    out.push({
+      frontmatter,
+      body: raw.body,
+      file: file.rel,
+      storeRel: file.storeRel,
+      line: raw.line,
+    });
   }
   return out;
 }
 
-/** Every distinct scope tag used across the store's valid records, sorted. */
-export function allScopes(root: string): string[] {
+/** Every distinct scope tag used across a set of records, sorted. */
+export function allScopesFrom(records: StoreRecord[]): string[] {
   const scopes = new Set<string>();
-  for (const rec of loadRecords(root)) {
+  for (const rec of records) {
     for (const s of rec.frontmatter.scope) scopes.add(s);
   }
   return [...scopes].sort();
+}
+
+/** Every distinct scope tag used across the store's valid records, sorted. */
+export function allScopes(root: string): string[] {
+  return allScopesFrom(loadRecords(root));
+}
+
+/** Case-insensitive: does this record carry `tag` among its scope list? */
+export function matchesScope(rec: StoreRecord, tag: string): boolean {
+  const lower = tag.toLowerCase();
+  return rec.frontmatter.scope.some((s) => s.toLowerCase() === lower);
 }
 
 /** Render a record's frontmatter + body as it looks on disk (canonical form). */
