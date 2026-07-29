@@ -1,6 +1,6 @@
 {
   "name": "agnosgram",
-  "version": "0.5.0",
+  "version": "0.8.0",
   "description": "Agent-agnostic, per-project memory for AI coding agents. Plain Markdown + YAML in your repo, reviewable in PRs.",
   "keywords": [
     "ai",
@@ -29,9 +29,12 @@
     "test": "tsc -p tsconfig.test.json && node --test $(find dist -name '*.test.js')",
     "bench": "node bench/bench.mjs",
     "bench:check": "node bench/bench.mjs --check",
+    "tier2": "node bench/tier2.mjs",
+    "tier2:check": "node bench/tier2.mjs --check",
     "prepare": "npm run build"
   },
   "devDependencies": {
+    "@toon-format/toon": "4.1.0",
     "@types/node": "^20.14.0",
     "gpt-tokenizer": "^2.9.0",
     "typescript": "^5.5.0"

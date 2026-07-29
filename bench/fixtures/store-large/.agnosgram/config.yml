@@ -1,0 +1,13 @@
+version: 1
+journal:
+  committed: true
+staleness_days: 120
+budgets:
+  state/status.md: 400
+  context/architecture.md: 1500
+  context/stack.md: 800
+  context/domain.md: 1000
+  lessons/pitfalls.md: 4000
+  lessons/conventions.md: 4000
+adapters: { claude: off, cursor: off, agents: off }
+sdd: { openspec: auto, speckit: auto, bmad: auto, agentos: auto }

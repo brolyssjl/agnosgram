@@ -2,8 +2,9 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { loadConfig } from "../core/config.js";
-import { info, printJson, UserError } from "../core/output.js";
+import { info, printStructured, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore, memoryDir } from "../core/paths.js";
+import { resolveFormat } from "../core/serialize.js";
 import { journalMd, journalMonth } from "../core/templates.js";
 
 const SLOTS: Array<[keyof SlotValues, string]> = [
@@ -72,8 +73,11 @@ export function runLog(argv: string[]): void {
       branch: { type: "string" },
       stdin: { type: "boolean", default: false },
       json: { type: "boolean", default: false },
+      format: { type: "string" },
     },
   });
+
+  const format = resolveFormat(values);
 
   const root = findProjectRoot();
   if (!hasStore(root)) {
@@ -113,8 +117,8 @@ export function runLog(argv: string[]): void {
   appendFileSync(file, "\n" + entry);
 
   const relFile = join(".agnosgram", "journal", `${month}.md`);
-  if (values.json) {
-    printJson({ file: relFile, agent, branch, entry: entry.trimEnd() });
+  if (format !== "human") {
+    printStructured({ file: relFile, agent, branch, entry: entry.trimEnd() }, format);
     return;
   }
   info(`Logged to ${relFile}`);

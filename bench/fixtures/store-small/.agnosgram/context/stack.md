@@ -1,0 +1,3 @@
+# Stack
+
+Fixture placeholder.

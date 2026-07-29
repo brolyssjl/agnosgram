@@ -12,6 +12,8 @@ export interface AgnosgramConfig {
   budgets: Record<string, number>;
   adapters: Record<string, Toggle>;
   sdd: Record<string, Toggle>;
+  /** Default token budget `pack` uses when `--budget` is not given (additive, optional). */
+  pack_budget?: number;
 }
 
 export const DEFAULT_STALENESS_DAYS = 120;
@@ -71,6 +73,9 @@ function normalizeConfig(raw: YamlValue): AgnosgramConfig {
   base.budgets = numberMap(obj.budgets, base.budgets);
   base.adapters = toggleMap(obj.adapters, base.adapters);
   base.sdd = toggleMap(obj.sdd, base.sdd);
+  if (typeof obj.pack_budget === "number" && obj.pack_budget > 0) {
+    base.pack_budget = obj.pack_budget;
+  }
   return base;
 }
 

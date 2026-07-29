@@ -25,3 +25,5 @@ jobs:
         run: npm test
       - name: Token benchmark regression gate
         run: node bench/bench.mjs --check
+      - name: Tier-2 end-to-end token eval gate
+        run: node bench/tier2.mjs --check

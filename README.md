@@ -10,11 +10,11 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
-> **Status:** beta (`0.5.0`). Milestones 1-2 are done and dogfooded on this repo:
-> capture (`init` / `adapt` / `log`) plus the self-maintaining half (`doctor` /
-> `distill` / `bootstrap`). **The on-disk `.agnosgram/` format is frozen** at format
-> version 1 - safe to adopt on a real, even legacy, project. See the
-> [schema reference](docs/schema-reference.md).
+> **Status:** release candidate (`0.8.0`). Milestones 1-3 are done and dogfooded on
+> this repo: capture (`init` / `adapt` / `log`), the self-maintaining half (`doctor` /
+> `distill` / `bootstrap`), and retrieval (`pack` / `show` / `advise`).
+> **The on-disk `.agnosgram/` format is frozen** at format version 1 - safe to adopt
+> on a real, even legacy, project. See the [schema reference](docs/schema-reference.md).
 
 ## Install
 
@@ -62,11 +62,15 @@ universal fallback for any agent.
 | `agnosgram doctor` | Lint the store: schema, staleness, budgets, broken links, duplicate/near-duplicate ids, and safety lints (secret scan + prompt-injection guard). `--strict`, `--json`. See [guide](docs/doctor.md). |
 | `agnosgram distill` | Emit a compaction prompt (merge via `supersedes:`, never append near-dups); `--validate <file>` checks a distilled result; `--archive <YYYY-MM>` retires an absorbed journal month. See [guide](docs/distill.md). |
 | `agnosgram bootstrap` | Emit a prompt that seeds `context/architecture.md` + `domain.md` from an existing codebase - fast onboarding for a legacy repo. See [guide](docs/bootstrap.md). |
+| `agnosgram show <topic>` | Print records matching an id, scope tag, or type - for agents with weak file navigation. `--type`, `--format json\|toon`. See [guide](docs/show.md). |
+| `agnosgram pack` | Token-budgeted context bundle: status + lessons (+ decisions when `--scope`d). Human output is the Markdown bundle itself. `--scope`, `--budget`, `--format json\|toon`. See [guide](docs/pack.md). |
+| `agnosgram advise <plan-path>` | Emit a plan-vs-memory contradiction review prompt; `--validate <report>` mechanically checks the agent's JSON report. `--strict`, `--format json\|toon`. See [guide](docs/advise.md). |
 
-Judgment steps (`distill`, `bootstrap`) **emit a prompt** for your agent and then
-validate the result mechanically - the CLI itself never calls an LLM.
+Judgment steps (`distill`, `bootstrap`, `advise`) **emit a prompt** for your agent
+and then validate the result mechanically - the CLI itself never calls an LLM.
 
-Coming next (Milestone 3): `advise` (the landmine-catcher), `pack`, `show`.
+Coming next (Milestone 4): remaining adapters (Windsurf, Cline/Roo, OpenCode,
+Codex), a Claude Code skill/plugin with session hooks, and `install.sh` binaries.
 
 ## Anti-rot
 
@@ -77,14 +81,16 @@ format. Full field-by-field contract: **[docs/schema-reference.md](docs/schema-r
 
 ## Status & roadmap
 
-Milestones 1-2 are done and dogfooded: capture (`init` / `adapt` / `log`) and the
-self-maintaining half (`doctor` / `distill` / `bootstrap`), with the on-disk format
-frozen at version 1. The killer `advise` feature (contradiction-catcher) is next.
+Milestones 1-3 are done and dogfooded: capture (`init` / `adapt` / `log`), the
+self-maintaining half (`doctor` / `distill` / `bootstrap`), and retrieval
+(`pack` / `show` / `advise`), with the on-disk format frozen at version 1.
 Full plan with progress checkboxes and release checkpoints:
 **[ROADMAP.md](ROADMAP.md)**.
 
-**`0.5.0`** is the first release safe to adopt on a real project: frontmatter schema
-validation, `doctor`, `distill`, and a frozen on-disk format.
+**`0.5.0`** was the first release safe to adopt on a real project: frontmatter
+schema validation, `doctor`, `distill`, and a frozen on-disk format.
+**`0.8.0`** (this release, RC) adds the killer feature: `advise`, the
+contradiction-catcher, plus `pack` and `show`.
 
 ## How it compares
 
@@ -115,6 +121,7 @@ not a per-user database and not a single-agent file.
 npm run build     # tsc -> dist/
 npm test          # compile + node --test
 npm run bench     # Tier-1 token benchmark (add --check to gate in CI)
+npm run tier2     # Tier-2 end-to-end token eval (add --check to gate in CI)
 ```
 
 ## License

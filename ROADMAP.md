@@ -15,8 +15,8 @@ lean on the tool*, not feature count.
 |---|---|---|
 | `0.1.0` | Milestone 1 (done) | Core capture works; installable from GitHub. Early. |
 | `0.2.0` | Published to npm | `npx agnosgram` / `npm i -g`. Still the M1 surface. |
-| **`0.5.0` (beta)** | **Milestone 2 done + format freeze** | **First release safe to adopt on a real - even legacy - project.** Self-maintaining: schema-validated, `doctor` catches rot, `distill` curates. The format is frozen. |
-| `0.8.0` (RC) | Milestone 3 done | Feature-complete core incl. `advise` (the landmine-catcher) and `pack`/`show`. Release candidate. |
+| `0.5.0` (beta) | Milestone 2 done + format freeze | First release safe to adopt on a real - even legacy - project. Self-maintaining: schema-validated, `doctor` catches rot, `distill` curates. The format is frozen. |
+| **`0.8.0` (RC)** | **Milestone 3 done** | **Feature-complete core** incl. `advise` (the landmine-catcher) and `pack`/`show`. Release candidate. |
 | `1.0.0` | Milestone 4 + real-world soak | Adapters, skill/plugin, docs, dogfooded for months. Stable CLI + format. |
 | `1.x+` | Milestone 5 | Reflexive self-improvement loop and beyond. |
 
@@ -53,13 +53,13 @@ the release to adopt on the legacy project._
 - [x] **Format freeze**: lock `.agnosgram/` layout + frontmatter schema; document the stable contract (see `.agnosgram/decisions/0002-format-freeze.md`)
 - [x] Docs: schema reference + `doctor`/`distill`/`bootstrap` guides (`docs/`)
 
-## Milestone 3 - Retrieval & the killer feature · `0.8.0` (RC)
-- [ ] Pluggable output serializer (JSON default, TOON opt-in) behind one interface
-- [ ] `pack`: token-budgeted context bundle to stdout (status + lessons + matching scopes)
-- [ ] `show <topic>`: print entries matching a tag/scope (for agents with weak file navigation)
-- [ ] `advise <spec-or-plan-path>`: emit contradiction-review prompt (cross-check plan against `lessons/` + `decisions/` with provenance); machine-parseable `--json` report for Gate
-- [ ] Tier-2 end-to-end token evals (task suite × format matrix)
-- [ ] Faithful `@toon-format` encoder in bench for real small-object numbers (see LES-002)
+## Milestone 3 - Retrieval & the killer feature · `0.8.0` (RC) ✅ done
+- [x] Pluggable output serializer (JSON default, TOON opt-in) behind one interface
+- [x] `pack`: token-budgeted context bundle to stdout (status + lessons + matching scopes)
+- [x] `show <topic>`: print entries matching a tag/scope (for agents with weak file navigation)
+- [x] `advise <spec-or-plan-path>`: emit contradiction-review prompt (cross-check plan against `lessons/` + `decisions/` with provenance); machine-parseable `--json` report for Gate
+- [x] Tier-2 end-to-end token evals (task suite × format matrix)
+- [x] Faithful `@toon-format` encoder in bench for real small-object numbers (see LES-002)
 
 ## Milestone 4 - Reach & ergonomics · toward `1.0.0`
 - [ ] Remaining adapters: Windsurf, Cline/Roo, OpenCode, Codex

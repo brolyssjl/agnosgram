@@ -81,12 +81,16 @@ sdd:
   speckit: auto
   bmad: auto
   agentos: auto
+pack_budget: 2000          # optional; default token budget for `agnosgram pack`
 ```
 
 Unknown keys are ignored on load, so future versions can add keys without breaking
 older stores. Budgets are checked with a dependency-free token *estimate* (it errs
 high so `doctor` warns early), not a real tokenizer - the zero-runtime-dependency
-guarantee (DEC-0001) takes priority over exact counts.
+guarantee (DEC-0001) takes priority over exact counts. `pack_budget` (Milestone 3)
+is one such additive key: it only sets the default `--budget` for `agnosgram pack`
+and is not part of the frozen directory layout or record schema - a store without
+it just uses the built-in default (2000).
 
 ## Freshness table (`MEMORY.md`)
 
@@ -99,6 +103,16 @@ The whole-file counterpart to per-record `last_verified`. Rows look like:
 ```
 
 `doctor` flags any row whose date is older than `staleness_days`.
+
+## `advise` reports are not store format
+
+`agnosgram advise --validate` reads and checks a JSON report (`agnosgram_advise`,
+see [docs/advise.md](advise.md)) that an agent writes to `<plan>.advise.json` (or
+`--out <path>`). That file is a **CLI output contract** - versioned on its own
+(`agnosgram_advise: 1`), shared with Gate's `plan.advise` check - not part of the
+`.agnosgram/` store described on this page. It is never written under
+`.agnosgram/`, has no frontmatter, and this document's format-version-1 guarantee
+does not cover it; the store format stays untouched by `advise`.
 
 ## Compatibility guarantee
 
