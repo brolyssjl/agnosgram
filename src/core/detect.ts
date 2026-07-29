@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 /**
  * Detection is advisory only (principle 6): results become hint lines in pointer
- * blocks and defaults for which adapters to offer. Nothing here is load-bearing —
+ * blocks and defaults for which adapters to offer. Nothing here is load-bearing -
  * a missing or extra detection can only change hints, never corrupt memory.
  */
 

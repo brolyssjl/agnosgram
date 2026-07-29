@@ -2,7 +2,7 @@
  * Minimal, dependency-free YAML for the narrow subset Agnosgram controls:
  * nested maps (2-space indent), scalars (string / number / boolean / null),
  * and block sequences of scalars (`- item`). It is deliberately NOT a general
- * YAML implementation — it covers `config.yml` and record frontmatter, both of
+ * YAML implementation - it covers `config.yml` and record frontmatter, both of
  * which we author from templates. Anything outside the subset throws.
  */
 

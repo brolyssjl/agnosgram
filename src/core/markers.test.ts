@@ -11,7 +11,7 @@ test("appends a managed block to user content, preserving it", () => {
   assert.ok(out.includes("BODY"));
 });
 
-test("is idempotent — running twice yields identical output", () => {
+test("is idempotent - running twice yields identical output", () => {
   const existing = "# My rules\n\nkeep me\n";
   const once = upsertManagedBlock(existing, "BODY v1");
   const twice = upsertManagedBlock(once, "BODY v1");
