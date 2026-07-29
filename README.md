@@ -10,11 +10,13 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
-> **Status:** release candidate (`0.8.0`). Milestones 1-3 are done and dogfooded on
-> this repo: capture (`init` / `adapt` / `log`), the self-maintaining half (`doctor` /
-> `distill` / `bootstrap`), and retrieval (`pack` / `show` / `advise`).
+> **Status:** `0.9.0`. Milestones 1-4 are done and dogfooded on this repo: capture
+> (`init` / `adapt` / `log`), the self-maintaining half (`doctor` / `distill` /
+> `bootstrap`), retrieval (`pack` / `show` / `advise`), and reach (every mainstream
+> adapter, opt-in Claude Code hooks, `install.sh` + binaries, SDD coexistence).
 > **The on-disk `.agnosgram/` format is frozen** at format version 1 - safe to adopt
-> on a real, even legacy, project. See the [schema reference](docs/schema-reference.md).
+> on a real, even legacy, project. `1.0.0` follows a real-world soak period; see
+> [ROADMAP.md](ROADMAP.md). See the [schema reference](docs/schema-reference.md).
 
 ## Install
 
@@ -23,7 +25,9 @@ npm i -g agnosgram      # daily use
 npx agnosgram init      # zero-install trial
 ```
 
-Requires Node ≥ 20. Zero runtime dependencies.
+Requires Node ≥ 20. Zero runtime dependencies. No local Node? Use the install
+script instead, which fetches a prebuilt binary: see
+**[docs/install.md](docs/install.md)**.
 
 ## Quick start
 
@@ -98,16 +102,18 @@ format. Full field-by-field contract: **[docs/schema-reference.md](docs/schema-r
 
 ## Status & roadmap
 
-Milestones 1-3 are done and dogfooded: capture (`init` / `adapt` / `log`), the
-self-maintaining half (`doctor` / `distill` / `bootstrap`), and retrieval
-(`pack` / `show` / `advise`), with the on-disk format frozen at version 1.
-Full plan with progress checkboxes and release checkpoints:
-**[ROADMAP.md](ROADMAP.md)**.
+Milestones 1-4 are done and dogfooded: capture (`init` / `adapt` / `log`), the
+self-maintaining half (`doctor` / `distill` / `bootstrap`), retrieval (`pack` /
+`show` / `advise`), and reach (adapters, Claude Code hooks, install.sh + binaries,
+SDD coexistence), with the on-disk format frozen at version 1. Full plan with
+progress checkboxes and release checkpoints: **[ROADMAP.md](ROADMAP.md)**.
 
 **`0.5.0`** was the first release safe to adopt on a real project: frontmatter
 schema validation, `doctor`, `distill`, and a frozen on-disk format.
-**`0.8.0`** (this release, RC) adds the killer feature: `advise`, the
-contradiction-catcher, plus `pack` and `show`.
+**`0.8.0`** added the killer feature: `advise`, the contradiction-catcher, plus
+`pack` and `show`. **`0.9.0`** (this release) is Milestone 4: every mainstream
+adapter, opt-in Claude Code hooks, `install.sh` + prebuilt binaries, and deeper
+SDD coexistence. `1.0.0` follows a real-world soak on a real project.
 
 ## How it compares
 

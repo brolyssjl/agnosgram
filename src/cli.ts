@@ -10,9 +10,9 @@ import { runPack } from "./commands/pack.js";
 import { runShow } from "./commands/show.js";
 import { UserError, warn } from "./core/output.js";
 
-const VERSION = "0.8.0";
+const VERSION = "0.9.0";
 
-const HELP = `agnosgram — agent-agnostic, per-project memory (plain Markdown in your repo)
+const HELP = `agnosgram - agent-agnostic, per-project memory (plain Markdown in your repo)
 
 Usage:
   agnosgram init [--adapt <list|none>] [--force] [--no-journal-commit] [--json]
