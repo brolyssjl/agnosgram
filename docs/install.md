@@ -58,9 +58,11 @@ mkdir /tmp/agnosgram-smoke && cd /tmp/agnosgram-smoke && git init -q
 
 ## Releases
 
-Pushing a `v*.*.*` tag runs `.github/workflows/release.yml`: it builds
-`agnosgram-linux-x64` and `agnosgram-darwin-arm64` binaries (via the same
-`build:binary` script, one per matrix OS), runs the full test/bench gate, and
-attaches both binaries to a GitHub release. `npm publish` stays a separate,
-owner-gated job (`NPM_PUBLISH=true` repo variable + `NPM_TOKEN` secret) - the
-release workflow never publishes on its own.
+Pushing a `v*.*.*` tag runs `.github/workflows/release.yml`: a `test` job runs
+the build/test/bench gate (the one hard requirement), in parallel with a
+`build-binaries` job that builds `agnosgram-linux-x64` and `agnosgram-darwin-arm64`
+(via the same `build:binary` script, one per matrix OS). Binaries are
+best-effort - a bun-setup outage or SEA failure on one platform attaches
+whatever succeeded rather than blocking the release or `npm publish`. `npm
+publish` stays a separate, owner-gated job (`NPM_PUBLISH=true` repo variable +
+`NPM_TOKEN` secret) - the release workflow never publishes on its own.
