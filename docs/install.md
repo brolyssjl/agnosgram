@@ -16,12 +16,15 @@ curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh
 ```
 
 This fetches the single-file binary for your platform (`linux-x64` or
-`darwin-arm64`) from the latest GitHub release and places it at
-`~/.local/bin/agnosgram` (override with `AGNOSGRAM_INSTALL_DIR`). If your platform
-has no matching release asset yet, or curl can't reach GitHub's API, it falls back
-to `npm install -g agnosgram` when Node is available - otherwise it tells you what
-to install by hand. Nothing here needs network access again after install: the CLI
-itself never calls out.
+`darwin-arm64`) from `github.com/<repo>/releases/latest/download/<asset>` - a
+redirect straight to the current release's asset, no separate API call to
+resolve the tag first - and places it at `~/.local/bin/agnosgram` (override with
+`AGNOSGRAM_INSTALL_DIR`). The download goes to a temp file first and is only
+moved into place once it succeeds, so a failed transfer never leaves a truncated
+binary behind. If your platform or architecture has no matching release asset
+yet, it falls back to `npm install -g agnosgram` when Node is available -
+otherwise it tells you what to install by hand. Nothing here needs network
+access again after install: the CLI itself never calls out.
 
 Read the script before piping it into `bash` if you'd rather - it's a plain,
 short, `set -euo pipefail` shell script with no hidden steps.
