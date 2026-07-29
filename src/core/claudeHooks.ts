@@ -19,8 +19,12 @@ const SKILL_REL_PATH = ".claude/skills/agnosgram/SKILL.md";
 const SESSION_START_SCRIPT = "agnosgram-session-start.mjs";
 const STOP_SCRIPT = "agnosgram-stop-reminder.mjs";
 
-function sessionStartScriptContent(): string {
-  return `#!/usr/bin/env node
+// A shell one-liner (or a raw `agnosgram pack` command) would spawn one fewer
+// Node process per session, but would lose the structured hookSpecificOutput
+// envelope and the graceful, explanatory fallback when agnosgram isn't on PATH
+// (a bare `|| true` just goes silent) - not worth it for an event that fires at
+// session start/resume/compact/fork, not per turn. Kept as plain Node scripts.
+const SESSION_START_SCRIPT_CONTENT = `#!/usr/bin/env node
 // Managed by agnosgram (\`adapt --claude-hooks\`). Safe to regenerate; re-run that
 // command to refresh after an upgrade.
 import { execSync } from "node:child_process";
@@ -42,10 +46,8 @@ process.stdout.write(
   }),
 );
 `;
-}
 
-function stopScriptContent(): string {
-  return `#!/usr/bin/env node
+const STOP_SCRIPT_CONTENT = `#!/usr/bin/env node
 // Managed by agnosgram (\`adapt --claude-hooks\`). Safe to regenerate; re-run that
 // command to refresh after an upgrade.
 import { readFileSync } from "node:fs";
@@ -75,10 +77,8 @@ process.stdout.write(
   }),
 );
 `;
-}
 
-function skillContent(): string {
-  return `---
+const SKILL_CONTENT = `---
 name: agnosgram
 description: Read and update this project's Agnosgram memory (.agnosgram/) - status, lessons, decisions, and the session journal. Use when you need project context beyond what's in the code, or to record what happened this session.
 ---
@@ -108,7 +108,6 @@ reviewed in PRs). The CLI never calls an LLM and sends no telemetry.
 - \`state/status.md\` is small and volatile - safe to overwrite freely.
 - Read \`.agnosgram/MEMORY.md\` for the full reading protocol.
 `;
-}
 
 interface HookGroup {
   matcher?: string;
@@ -174,8 +173,8 @@ export function hooksInstalled(root: string): boolean {
 export function installClaudeHooks(root: string): ClaudeHooksResult {
   const written: WriteResult[] = [];
 
-  written.push(writeIfChanged(root, `${HOOKS_REL_DIR}/${SESSION_START_SCRIPT}`, sessionStartScriptContent(), { executable: true }));
-  written.push(writeIfChanged(root, `${HOOKS_REL_DIR}/${STOP_SCRIPT}`, stopScriptContent(), { executable: true }));
+  written.push(writeIfChanged(root, `${HOOKS_REL_DIR}/${SESSION_START_SCRIPT}`, SESSION_START_SCRIPT_CONTENT, { executable: true }));
+  written.push(writeIfChanged(root, `${HOOKS_REL_DIR}/${STOP_SCRIPT}`, STOP_SCRIPT_CONTENT, { executable: true }));
 
   const settingsPath = join(root, SETTINGS_REL_PATH);
   let settings: Record<string, unknown> = {};
@@ -221,7 +220,7 @@ export function installClaudeHooks(root: string): ClaudeHooksResult {
   const next = JSON.stringify(settings, null, 2) + "\n";
   written.push(writeIfChanged(root, SETTINGS_REL_PATH, next));
 
-  written.push(writeIfChanged(root, SKILL_REL_PATH, skillContent()));
+  written.push(writeIfChanged(root, SKILL_REL_PATH, SKILL_CONTENT));
 
   return { written };
 }
