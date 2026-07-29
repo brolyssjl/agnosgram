@@ -12,13 +12,62 @@ export interface SddFramework {
   name: string;
   /** Path fragments (relative to root); presence of any one counts as detected. */
   markers: string[];
+  /**
+   * The pointer-block coexistence line for this framework, given the matched
+   * directory (or `null` when forced `on` in config without ever being
+   * detected - phrased so it never claims a path that isn't really there).
+   * Required so a new framework can't be added to this registry without also
+   * defining its hint text - no separate table to keep in sync, and no
+   * silent no-op if one is missed.
+   */
+  hint: (matchedPath: string | null) => string;
+}
+
+/** Build a `hint` function: "X is present (`path`): tail" or, with no real path, "X support is enabled ...: tail". */
+function sddHint(name: string, tail: string): (matchedPath: string | null) => string {
+  return (matchedPath) =>
+    matchedPath
+      ? `- ${name} is present (\`${matchedPath}\`): ${tail}`
+      : `- ${name} support is enabled (no directory detected on disk): ${tail}`;
 }
 
 export const SDD_FRAMEWORKS: SddFramework[] = [
-  { key: "openspec", name: "OpenSpec", markers: ["openspec"] },
-  { key: "speckit", name: "Spec Kit", markers: [".specify"] },
-  { key: "bmad", name: "BMAD", markers: ["_bmad", ".bmad-core", "_bmad-core"] },
-  { key: "agentos", name: "Agent OS", markers: ["agent-os", ".agent-os"] },
+  {
+    key: "openspec",
+    name: "OpenSpec",
+    markers: ["openspec"],
+    hint: sddHint(
+      "OpenSpec",
+      "specs live there; memory records *why* and *what failed*, linking to specs by path.",
+    ),
+  },
+  {
+    key: "speckit",
+    name: "Spec Kit",
+    markers: [".specify"],
+    hint: sddHint(
+      "Spec Kit",
+      "the constitution stays authoritative for principles; Agnosgram holds empirical lessons.",
+    ),
+  },
+  {
+    key: "bmad",
+    name: "BMAD",
+    markers: ["_bmad", ".bmad-core", "_bmad-core"],
+    hint: sddHint(
+      "BMAD",
+      "QA/review steps should read `.agnosgram/lessons/pitfalls.md`; retro output goes to the journal.",
+    ),
+  },
+  {
+    key: "agentos",
+    name: "Agent OS",
+    markers: ["agent-os", ".agent-os"],
+    hint: sddHint(
+      "Agent OS",
+      "`standards/` stays authoritative for style; Agnosgram holds project-local exceptions and history.",
+    ),
+  },
 ];
 
 export interface AgentTarget {

@@ -79,29 +79,17 @@ export const ADAPTERS: Record<string, Adapter> = {
 
 export const ADAPTER_KEYS = Object.keys(ADAPTERS);
 
-/** One hint line, phrased so it never claims a path that isn't actually there. */
-function sddLine(path: string | null, name: string, tail: string): string {
-  return path
-    ? `- ${name} is present (\`${path}\`): ${tail}`
-    : `- ${name} support is enabled (no directory detected on disk): ${tail}`;
-}
-
-/** Hint lines describing coexistence with each detected SDD framework, pointing at the actual matched directory. */
+/**
+ * Hint lines describing coexistence with each detected SDD framework, pointing at
+ * the actual matched directory. The hint text itself lives on each SDD_FRAMEWORKS
+ * entry (single registry) - nothing here can silently drop a framework that's
+ * missing a template, since `hint` is a required field on `SddFramework`.
+ */
 function sddHintLines(hints: SddHint[]): string[] {
-  const templates: Record<string, (path: string | null) => string> = {
-    openspec: (p) =>
-      sddLine(p, "OpenSpec", "specs live there; memory records *why* and *what failed*, linking to specs by path."),
-    speckit: (p) =>
-      sddLine(p, "Spec Kit", "the constitution stays authoritative for principles; Agnosgram holds empirical lessons."),
-    bmad: (p) =>
-      sddLine(p, "BMAD", "QA/review steps should read `.agnosgram/lessons/pitfalls.md`; retro output goes to the journal."),
-    agentos: (p) =>
-      sddLine(p, "Agent OS", "`standards/` stays authoritative for style; Agnosgram holds project-local exceptions and history."),
-  };
-  const known = new Set(SDD_FRAMEWORKS.map((f) => f.key));
-  return hints
-    .filter((h) => known.has(h.key) && templates[h.key])
-    .map((h) => templates[h.key]!(h.matchedPath));
+  return hints.flatMap((h) => {
+    const framework = SDD_FRAMEWORKS.find((f) => f.key === h.key);
+    return framework ? [framework.hint(h.matchedPath)] : [];
+  });
 }
 
 /** The shared pointer body injected into every adapter target. */

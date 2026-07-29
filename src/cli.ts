@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ADAPTER_KEYS } from "./adapters/index.js";
 import { runAdapt } from "./commands/adapt.js";
 import { runAdvise } from "./commands/advise.js";
 import { runBootstrap } from "./commands/bootstrap.js";
@@ -16,7 +17,7 @@ const HELP = `agnosgram - agent-agnostic, per-project memory (plain Markdown in 
 
 Usage:
   agnosgram init [--adapt <list|none>] [--force] [--no-journal-commit] [--json]
-  agnosgram adapt [claude|cursor|windsurf|cline|roo|agents ...] [--all] [--refresh]
+  agnosgram adapt [${ADAPTER_KEYS.join("|")} ...] [--all] [--refresh]
                   [--claude-hooks] [--json]
   agnosgram log   [--did .. --learned .. --decided .. --avoid .. --next ..]
                   [--agent <name>] [--branch <name>] [--stdin] [--format json|toon]
