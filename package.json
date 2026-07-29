@@ -26,6 +26,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:binary": "node scripts/buildBinary.mjs",
     "test": "tsc -p tsconfig.test.json && node --test $(find dist -name '*.test.js')",
     "bench": "node bench/bench.mjs",
     "bench:check": "node bench/bench.mjs --check",
@@ -36,6 +37,7 @@
   "devDependencies": {
     "@toon-format/toon": "4.1.0",
     "@types/node": "^20.14.0",
+    "esbuild": "^0.28.1",
     "gpt-tokenizer": "^2.9.0",
     "typescript": "^5.5.0"
   }
