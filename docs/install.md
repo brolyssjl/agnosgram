@@ -45,7 +45,10 @@ never shipped or used at runtime, so it doesn't touch the zero-runtime-dependenc
 rule), then injects that bundle into a copy of the running `node` binary via
 `postject` (installed ad hoc: `npm install --no-save postject` - kept out of
 `package.json` on purpose). On macOS this also strips and re-applies an ad hoc
-code signature, since `postject` can't modify a signed binary in place.
+code signature, since `postject` can't modify a signed binary in place. The
+script always logs which engine it picked; set `AGNOSGRAM_BINARY_ENGINE=bun` or
+`=sea` to force one instead of PATH-sniffing for `bun` (useful in CI, or to
+reproduce a report against a specific engine).
 
 Verify a fresh build actually works end to end:
 

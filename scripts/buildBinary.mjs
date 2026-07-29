@@ -15,11 +15,15 @@
  *      bundle into a copied node binary needs `postject`; installed ad hoc
  *      (`npm install --no-save postject`) rather than as a project dep.
  *
+ * Which engine ran is always logged. Set AGNOSGRAM_BINARY_ENGINE=bun|sea to force
+ * one instead of PATH-sniffing for bun (useful in CI, or to reproduce a report
+ * against a specific engine).
+ *
  * Either way, `npm run build` must have already produced `dist/cli.js`.
  */
 import * as esbuild from "esbuild";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -43,8 +47,6 @@ function buildWithBun() {
 }
 
 async function buildWithNodeSea() {
-  process.stdout.write("bun not found - falling back to Node SEA (requires `postject`).\n");
-
   // SEA embeds one file; bundle the ESM dist/ output graph into a single CJS entry first.
   const bundlePath = join(root, "dist", "cli.sea.cjs");
   await esbuild.build({
@@ -73,14 +75,7 @@ async function buildWithNodeSea() {
     cwd: root,
   });
 
-  execFileSync(
-    "node",
-    [
-      "-e",
-      `require("fs").copyFileSync(${JSON.stringify(process.execPath)}, ${JSON.stringify(outFile)})`,
-    ],
-    { stdio: "inherit" },
-  );
+  copyFileSync(process.execPath, outFile);
   // The source node binary may be read-only (e.g. a Nix store path); copyFileSync can
   // carry that mode over, and postject needs to write to the copy.
   chmodSync(outFile, 0o755);
@@ -135,7 +130,26 @@ if (!existsSync(entry)) {
   process.exit(1);
 }
 
-if (hasBun()) {
+// AGNOSGRAM_BINARY_ENGINE=bun|sea forces a specific path instead of PATH-sniffing
+// for bun - useful for CI matrix legs or reproducing a report against one engine.
+const requestedEngine = process.env.AGNOSGRAM_BINARY_ENGINE;
+if (requestedEngine !== undefined && requestedEngine !== "bun" && requestedEngine !== "sea") {
+  process.stderr.write(`AGNOSGRAM_BINARY_ENGINE must be "bun" or "sea", got "${requestedEngine}"\n`);
+  process.exit(1);
+}
+if (requestedEngine === "bun" && !hasBun()) {
+  process.stderr.write("AGNOSGRAM_BINARY_ENGINE=bun requested but bun is not on PATH.\n");
+  process.exit(1);
+}
+
+const useBun = requestedEngine ? requestedEngine === "bun" : hasBun();
+process.stdout.write(
+  `Engine: ${useBun ? "bun" : "node-sea"}` +
+    (requestedEngine ? " (forced via AGNOSGRAM_BINARY_ENGINE)" : useBun ? "" : " (bun not found on PATH)") +
+    "\n",
+);
+
+if (useBun) {
   buildWithBun();
 } else {
   await buildWithNodeSea();
