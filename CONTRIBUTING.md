@@ -41,7 +41,8 @@ To cut a release:
 | `0.2.0` | First npm publish |
 | `0.5.0` (beta) | Milestone 2 done + format freeze - first release safe on a real project |
 | `0.8.0` (RC) | Milestone 3 done (`advise`, `pack`/`show`) |
-| `1.0.0` | Milestone 4 + real-world soak |
+| `0.9.0` | Milestone 4 done (adapters, Claude Code hooks, install.sh + binaries, SDD coexistence) |
+| `1.0.0` | `0.9.0` + real-world soak |
 
 ## Enabling npm publish (owner)
 

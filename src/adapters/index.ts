@@ -1,6 +1,16 @@
 import { SDD_FRAMEWORKS } from "../core/detect.js";
 
 /**
+ * An SDD framework to hint at, plus the specific directory to point the agent to.
+ * `matchedPath` is `null` when the framework was forced `on` in `config.yml`
+ * without ever being detected on disk - there is no real path to point at.
+ */
+export interface SddHint {
+  key: string;
+  matchedPath: string | null;
+}
+
+/**
  * An adapter targets one agent's config file. Every adapter injects the *same*
  * ~10-line pointer body (principle 3: one source template; content lives only in
  * `.agnosgram/`). Shared files (CLAUDE.md, AGENTS.md) get the managed block
@@ -15,6 +25,14 @@ export interface Adapter {
   dedicatedFile: boolean;
   /** Content written above the managed block when creating a dedicated file. */
   preamble?: string;
+  /**
+   * A legacy single-file convention this tool also reads (e.g. Cline's older
+   * `.clinerules` file, before the `.clinerules/` directory convention). If this
+   * path already exists as a plain file when applying, write there instead of
+   * `targetPath`, merging into whatever the user already has - never `mkdir`
+   * over a file that's already there.
+   */
+  legacyTargetPath?: string;
 }
 
 export const ADAPTERS: Record<string, Adapter> = {
@@ -31,6 +49,26 @@ export const ADAPTERS: Record<string, Adapter> = {
     dedicatedFile: true,
     preamble: "---\ndescription: Project memory protocol (Agnosgram)\nalwaysApply: true\n---\n",
   },
+  windsurf: {
+    key: "windsurf",
+    name: "Windsurf",
+    targetPath: ".windsurf/rules/agnosgram.md",
+    dedicatedFile: true,
+    preamble: "---\ntrigger: always_on\n---\n",
+  },
+  cline: {
+    key: "cline",
+    name: "Cline",
+    targetPath: ".clinerules/agnosgram.md",
+    dedicatedFile: true,
+    legacyTargetPath: ".clinerules",
+  },
+  roo: {
+    key: "roo",
+    name: "Roo Code",
+    targetPath: ".roo/rules/agnosgram.md",
+    dedicatedFile: true,
+  },
   agents: {
     key: "agents",
     name: "AGENTS.md",
@@ -41,24 +79,21 @@ export const ADAPTERS: Record<string, Adapter> = {
 
 export const ADAPTER_KEYS = Object.keys(ADAPTERS);
 
-/** Hint lines describing coexistence with each detected SDD framework. */
-function sddHintLines(sddKeys: string[]): string[] {
-  const hints: Record<string, string> = {
-    openspec:
-      "- OpenSpec is present (`openspec/`): specs live there; memory records *why* and *what failed*, linking to specs by path.",
-    speckit:
-      "- Spec Kit is present (`.specify/`): the constitution stays authoritative for principles; Agnosgram holds empirical lessons.",
-    bmad:
-      "- BMAD is present: QA/review steps should read `.agnosgram/lessons/pitfalls.md`; retro output goes to the journal.",
-    agentos:
-      "- Agent OS is present: `standards/` stays authoritative for style; Agnosgram holds project-local exceptions and history.",
-  };
-  const known = new Set(SDD_FRAMEWORKS.map((f) => f.key));
-  return sddKeys.filter((k) => known.has(k) && hints[k]).map((k) => hints[k]!);
+/**
+ * Hint lines describing coexistence with each detected SDD framework, pointing at
+ * the actual matched directory. The hint text itself lives on each SDD_FRAMEWORKS
+ * entry (single registry) - nothing here can silently drop a framework that's
+ * missing a template, since `hint` is a required field on `SddFramework`.
+ */
+function sddHintLines(hints: SddHint[]): string[] {
+  return hints.flatMap((h) => {
+    const framework = SDD_FRAMEWORKS.find((f) => f.key === h.key);
+    return framework ? [framework.hint(h.matchedPath)] : [];
+  });
 }
 
 /** The shared pointer body injected into every adapter target. */
-export function buildPointerBody(sddKeys: string[] = []): string {
+export function buildPointerBody(sddHints: SddHint[] = []): string {
   const lines = [
     "## Project memory (Agnosgram)",
     "",
@@ -71,7 +106,7 @@ export function buildPointerBody(sddKeys: string[] = []): string {
     "   areas you are about to touch.",
     "4. Before ending the session, record what happened with `agnosgram log`.",
   ];
-  const hints = sddHintLines(sddKeys);
+  const hints = sddHintLines(sddHints);
   if (hints.length > 0) {
     lines.push("", "Coexisting tools detected:", ...hints);
   }

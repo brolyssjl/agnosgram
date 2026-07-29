@@ -10,11 +10,13 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
-> **Status:** release candidate (`0.8.0`). Milestones 1-3 are done and dogfooded on
-> this repo: capture (`init` / `adapt` / `log`), the self-maintaining half (`doctor` /
-> `distill` / `bootstrap`), and retrieval (`pack` / `show` / `advise`).
+> **Status:** `0.9.0`. Milestones 1-4 are done and dogfooded on this repo: capture
+> (`init` / `adapt` / `log`), the self-maintaining half (`doctor` / `distill` /
+> `bootstrap`), retrieval (`pack` / `show` / `advise`), and reach (every mainstream
+> adapter, opt-in Claude Code hooks, `install.sh` + binaries, SDD coexistence).
 > **The on-disk `.agnosgram/` format is frozen** at format version 1 - safe to adopt
-> on a real, even legacy, project. See the [schema reference](docs/schema-reference.md).
+> on a real, even legacy, project. `1.0.0` follows a real-world soak period; see
+> [ROADMAP.md](ROADMAP.md). See the [schema reference](docs/schema-reference.md).
 
 ## Install
 
@@ -23,7 +25,9 @@ npm i -g agnosgram      # daily use
 npx agnosgram init      # zero-install trial
 ```
 
-Requires Node ≥ 20. Zero runtime dependencies.
+Requires Node ≥ 20. Zero runtime dependencies. No local Node? Use the install
+script instead, which fetches a prebuilt binary: see
+**[docs/install.md](docs/install.md)**.
 
 ## Quick start
 
@@ -52,12 +56,28 @@ to read `.agnosgram/MEMORY.md` first. The block is idempotent - re-running `adap
 rewrites only that region and never touches your own content. `AGENTS.md` is the
 universal fallback for any agent.
 
+## Supported adapters
+
+| Tool | `adapt` key | Target file |
+|---|---|---|
+| Claude Code | `claude` | `CLAUDE.md` (shared, managed block) |
+| Cursor | `cursor` | `.cursor/rules/agnosgram.mdc` (dedicated) |
+| Windsurf | `windsurf` | `.windsurf/rules/agnosgram.md` (dedicated) |
+| Cline | `cline` | `.clinerules/agnosgram.md` (dedicated) |
+| Roo Code | `roo` | `.roo/rules/agnosgram.md` (dedicated) |
+| Codex, OpenCode, or any other `AGENTS.md` reader | `agents` | `AGENTS.md` (shared, managed block) |
+
+Codex and OpenCode both read `AGENTS.md` natively, so `init`/`adapt` detect them
+(`.codex/`, `.opencode/`, `opencode.json`) and route to the `agents` adapter instead
+of writing a duplicate file. See [docs/adapters.md](docs/adapters.md) for detection
+signals and per-tool notes.
+
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `agnosgram init` | Scaffold `.agnosgram/`, detect SDD frameworks + agents, write adapters. `--adapt <list\|none>`, `--force`, `--no-journal-commit`, `--json`. |
-| `agnosgram adapt [claude\|cursor\|agents ...]` | Insert/refresh the managed pointer block. `--all`, `--refresh`, `--json`. |
+| `agnosgram adapt [claude\|cursor\|windsurf\|cline\|roo\|agents ...]` | Insert/refresh the managed pointer block. `--all`, `--refresh`, `--claude-hooks` (opt-in Claude Code `SessionStart`/`Stop` hooks + skill, see [guide](docs/claude-hooks.md)), `--json`. |
 | `agnosgram log` | Append a journal entry from flags (`--did/--learned/--decided/--avoid/--next`) or `--stdin`. Auto-detects branch. `--json` for machine consumers. |
 | `agnosgram doctor` | Lint the store: schema, staleness, budgets, broken links, duplicate/near-duplicate ids, and safety lints (secret scan + prompt-injection guard). `--strict`, `--json`. See [guide](docs/doctor.md). |
 | `agnosgram distill` | Emit a compaction prompt (merge via `supersedes:`, never append near-dups); `--validate <file>` checks a distilled result; `--archive <YYYY-MM>` retires an absorbed journal month. See [guide](docs/distill.md). |
@@ -69,8 +89,9 @@ universal fallback for any agent.
 Judgment steps (`distill`, `bootstrap`, `advise`) **emit a prompt** for your agent
 and then validate the result mechanically - the CLI itself never calls an LLM.
 
-Coming next (Milestone 4): remaining adapters (Windsurf, Cline/Roo, OpenCode,
-Codex), a Claude Code skill/plugin with session hooks, and `install.sh` binaries.
+Milestone 4 added the remaining adapters (Windsurf, Cline/Roo, OpenCode, Codex), a
+Claude Code skill with session hooks (see [docs/claude-hooks.md](docs/claude-hooks.md)),
+and `install.sh` + prebuilt binaries (see [docs/install.md](docs/install.md)).
 
 ## Anti-rot
 
@@ -81,16 +102,18 @@ format. Full field-by-field contract: **[docs/schema-reference.md](docs/schema-r
 
 ## Status & roadmap
 
-Milestones 1-3 are done and dogfooded: capture (`init` / `adapt` / `log`), the
-self-maintaining half (`doctor` / `distill` / `bootstrap`), and retrieval
-(`pack` / `show` / `advise`), with the on-disk format frozen at version 1.
-Full plan with progress checkboxes and release checkpoints:
-**[ROADMAP.md](ROADMAP.md)**.
+Milestones 1-4 are done and dogfooded: capture (`init` / `adapt` / `log`), the
+self-maintaining half (`doctor` / `distill` / `bootstrap`), retrieval (`pack` /
+`show` / `advise`), and reach (adapters, Claude Code hooks, install.sh + binaries,
+SDD coexistence), with the on-disk format frozen at version 1. Full plan with
+progress checkboxes and release checkpoints: **[ROADMAP.md](ROADMAP.md)**.
 
 **`0.5.0`** was the first release safe to adopt on a real project: frontmatter
 schema validation, `doctor`, `distill`, and a frozen on-disk format.
-**`0.8.0`** (this release, RC) adds the killer feature: `advise`, the
-contradiction-catcher, plus `pack` and `show`.
+**`0.8.0`** added the killer feature: `advise`, the contradiction-catcher, plus
+`pack` and `show`. **`0.9.0`** (this release) is Milestone 4: every mainstream
+adapter, opt-in Claude Code hooks, `install.sh` + prebuilt binaries, and deeper
+SDD coexistence. `1.0.0` follows a real-world soak on a real project.
 
 ## How it compares
 

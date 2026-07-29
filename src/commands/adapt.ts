@@ -1,14 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter } from "../adapters/index.js";
+import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter, type SddHint } from "../adapters/index.js";
+import { hooksInstalled, installClaudeHooks } from "../core/claudeHooks.js";
 import { loadConfig, saveConfig, type AgnosgramConfig, type Toggle } from "../core/config.js";
 import { AGENT_TARGETS, detectAgents, detectSdd } from "../core/detect.js";
 import { upsertManagedBlock } from "../core/markers.js";
 import { info, printJson, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore } from "../core/paths.js";
+import { writeIfChanged, type WriteAction } from "../core/writeFile.js";
 
-export type AdaptAction = "created" | "updated" | "unchanged";
+export type AdaptAction = WriteAction;
 
 export interface AdaptResult {
   adapter: string;
@@ -16,18 +18,41 @@ export interface AdaptResult {
   action: AdaptAction;
 }
 
-/** Which SDD frameworks are active for hint lines, given config + detection. */
-export function resolveSddKeys(root: string, config: AgnosgramConfig): string[] {
-  const detected = new Set(detectSdd(root).map((f) => f.key));
+/**
+ * Which SDD frameworks are active for hint lines, given config + detection, each
+ * paired with the specific directory that was actually found on disk. A
+ * framework forced "on" in config without ever being detected gets `matchedPath:
+ * null` - there's nothing real to point at, so the hint text says so instead of
+ * fabricating a path.
+ */
+export function resolveSddHints(root: string, config: AgnosgramConfig): SddHint[] {
+  const detected = new Map(detectSdd(root).map((f) => [f.key, f.matchedPath]));
   return Object.entries(config.sdd)
     .filter(([key, toggle]) => toggle === "on" || (toggle === "auto" && detected.has(key)))
-    .map(([key]) => key);
+    .map(([key]) => ({ key, matchedPath: detected.get(key) ?? null }));
+}
+
+/**
+ * Resolve which path an adapter actually writes to for this project. Normally
+ * `targetPath`, but a legacy single-file convention (e.g. Cline's `.clinerules`
+ * file, predating the `.clinerules/` directory) takes over when that path already
+ * exists as a plain file - never `mkdir` a directory over an existing file.
+ */
+function resolveAdapterPath(root: string, adapter: Adapter): string {
+  if (adapter.legacyTargetPath) {
+    const legacyAbs = join(root, adapter.legacyTargetPath);
+    if (existsSync(legacyAbs) && statSync(legacyAbs).isFile()) {
+      return adapter.legacyTargetPath;
+    }
+  }
+  return adapter.targetPath;
 }
 
 /** Inject or refresh one adapter's managed block. Idempotent. */
-export function applyAdapter(root: string, adapter: Adapter, sddKeys: string[]): AdaptResult {
-  const target = join(root, adapter.targetPath);
-  const body = buildPointerBody(sddKeys);
+export function applyAdapter(root: string, adapter: Adapter, sddHints: SddHint[]): AdaptResult {
+  const relPath = resolveAdapterPath(root, adapter);
+  const target = join(root, relPath);
+  const body = buildPointerBody(sddHints);
 
   let existing = "";
   if (existsSync(target)) {
@@ -37,19 +62,18 @@ export function applyAdapter(root: string, adapter: Adapter, sddKeys: string[]):
   }
 
   const next = upsertManagedBlock(existing, body);
-  const existedBefore = existsSync(target);
 
-  if (existedBefore && next === existing) {
-    return { adapter: adapter.key, path: adapter.targetPath, action: "unchanged" };
+  try {
+    const result = writeIfChanged(root, relPath, next);
+    return { adapter: adapter.key, path: result.path, action: result.action };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new UserError(
+      `Could not write ${adapter.name}'s adapter file at ${relPath}: ${detail}. ` +
+        `Resolve the conflict (e.g. a file where a directory is expected) and re-run ` +
+        `\`agnosgram adapt ${adapter.key}\`.`,
+    );
   }
-
-  mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, next);
-  return {
-    adapter: adapter.key,
-    path: adapter.targetPath,
-    action: existedBefore ? "updated" : "created",
-  };
 }
 
 /** Adapters that should be written when no explicit targets are given. */
@@ -78,6 +102,7 @@ export function runAdapt(argv: string[]): void {
       all: { type: "boolean", default: false },
       refresh: { type: "boolean", default: false },
       json: { type: "boolean", default: false },
+      "claude-hooks": { type: "boolean", default: false },
     },
   });
 
@@ -101,22 +126,32 @@ export function runAdapt(argv: string[]): void {
     targets = resolveEnabledAdapters(root, config);
   }
 
-  if (targets.length === 0) {
+  // --refresh also picks up hooks a prior run already installed, so an upgrade
+  // (which regenerates the hook scripts' content) doesn't require remembering
+  // to pass --claude-hooks again.
+  const claudeHooks = values["claude-hooks"] || (values.refresh && hooksInstalled(root));
+
+  if (targets.length === 0 && !claudeHooks) {
     const detectedHint = detectAgents(root)
       .map((a) => a.name)
       .join(", ");
     throw new UserError(
       "No adapters to write. Name one explicitly (e.g. `agnosgram adapt claude`), " +
-        "use `--all`, or enable adapters in config.yml." +
+        "use `--all`, enable adapters in config.yml, or pass `--claude-hooks`." +
         (detectedHint ? `\nDetected agents in this repo: ${detectedHint}.` : ""),
     );
   }
 
-  const sddKeys = resolveSddKeys(root, config);
-  const results = targets.map((key) => applyAdapter(root, ADAPTERS[key]!, sddKeys));
+  const sddHints = resolveSddHints(root, config);
+  const results = targets.map((key) => applyAdapter(root, ADAPTERS[key]!, sddHints));
+  const hooksResult = claudeHooks ? installClaudeHooks(root) : null;
 
   if (values.json) {
-    printJson({ adapters: results, sdd: sddKeys });
+    printJson({
+      adapters: results,
+      sdd: sddHints,
+      ...(hooksResult ? { claudeHooks: hooksResult.written } : {}),
+    });
     return;
   }
 
@@ -124,8 +159,18 @@ export function runAdapt(argv: string[]): void {
     const verb = r.action === "unchanged" ? "unchanged" : r.action;
     info(`  ${verb.padEnd(9)} ${r.path}  (${ADAPTERS[r.adapter]!.name})`);
   }
-  if (sddKeys.length > 0) {
-    info(`\nSDD hints included: ${sddKeys.join(", ")}`);
+  if (sddHints.length > 0 && results.length > 0) {
+    const summary = sddHints
+      .map((h) => (h.matchedPath ? `${h.key} (${h.matchedPath})` : `${h.key} (no directory detected)`))
+      .join(", ");
+    info(`\nSDD hints included: ${summary}`);
+  }
+  if (hooksResult) {
+    info("");
+    info("Claude Code hooks + skill (SessionStart runs `agnosgram pack`, Stop reminds `agnosgram log`):");
+    for (const w of hooksResult.written) {
+      info(`  ${w.action.padEnd(9)} ${w.path}`);
+    }
   }
 }
 

@@ -1,8 +1,9 @@
 name: Release
 
 # Fires when a version tag is pushed (e.g. `git tag v0.2.0 && git push --tags`).
-# Builds, tests, and creates a GitHub release. npm publish is a separate job that
-# only runs once the owner opts in (repo variable NPM_PUBLISH=true + secret NPM_TOKEN).
+# Builds, tests, and creates a GitHub release with per-platform binaries. npm
+# publish is a separate job that only runs once the owner opts in (repo variable
+# NPM_PUBLISH=true + secret NPM_TOKEN).
 on:
   push:
     tags: ["v*.*.*"]
@@ -11,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,10 +24,55 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: node bench/bench.mjs --check
+
+  build-binaries:
+    # Best-effort: a bun-setup outage or SEA breakage on one platform must never
+    # block the GitHub release or npm publish - `test` is the only hard gate.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: agnosgram-linux-x64
+          - os: macos-latest
+            asset: agnosgram-darwin-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: oven-sh/setup-bun@v2
+      - run: npm run build:binary
+      - run: mv dist-bin/agnosgram "${{ matrix.asset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+  release:
+    needs: [test, build-binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Binaries are best-effort (see build-binaries' continue-on-error): if every
+      # leg failed there's nothing to download, so this must not fail the release.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: release-assets
+          merge-multiple: true
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" --generate-notes --verify-tag
+        run: |
+          shopt -s nullglob
+          assets=(release-assets/*)
+          gh release create "${{ github.ref_name }}" "${assets[@]}" --generate-notes --verify-tag
 
   publish-npm:
     needs: release

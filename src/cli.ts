@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ADAPTER_KEYS } from "./adapters/index.js";
 import { runAdapt } from "./commands/adapt.js";
 import { runAdvise } from "./commands/advise.js";
 import { runBootstrap } from "./commands/bootstrap.js";
@@ -10,13 +11,14 @@ import { runPack } from "./commands/pack.js";
 import { runShow } from "./commands/show.js";
 import { UserError, warn } from "./core/output.js";
 
-const VERSION = "0.8.0";
+const VERSION = "0.9.0";
 
-const HELP = `agnosgram — agent-agnostic, per-project memory (plain Markdown in your repo)
+const HELP = `agnosgram - agent-agnostic, per-project memory (plain Markdown in your repo)
 
 Usage:
   agnosgram init [--adapt <list|none>] [--force] [--no-journal-commit] [--json]
-  agnosgram adapt [claude|cursor|agents ...] [--all] [--refresh] [--json]
+  agnosgram adapt [${ADAPTER_KEYS.join("|")} ...] [--all] [--refresh]
+                  [--claude-hooks] [--json]
   agnosgram log   [--did .. --learned .. --decided .. --avoid .. --next ..]
                   [--agent <name>] [--branch <name>] [--stdin] [--format json|toon]
   agnosgram doctor [--strict] [--format json|toon]
@@ -30,6 +32,7 @@ Usage:
 Commands:
   init      Scaffold .agnosgram/, detect SDD frameworks + agents, write adapters.
   adapt     Insert/refresh the managed pointer block in an agent's config file.
+            --claude-hooks installs opt-in SessionStart/Stop hooks + a skill.
   log       Append a journal entry (agents call this at session end).
   doctor    Lint the store: schema, staleness, budgets, links, ids, safety.
   distill   Emit a compaction prompt; validate a distilled result; archive months.

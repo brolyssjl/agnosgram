@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { ADAPTER_KEYS } from "../adapters/index.js";
 import { configPath } from "./paths.js";
 import { parseYaml, stringifyYaml, type YamlValue } from "./yaml.js";
 
@@ -33,7 +34,7 @@ export function defaultConfig(): AgnosgramConfig {
     journal: { committed: true },
     staleness_days: DEFAULT_STALENESS_DAYS,
     budgets: { ...DEFAULT_BUDGETS },
-    adapters: { claude: "off", cursor: "off", agents: "off" },
+    adapters: Object.fromEntries(ADAPTER_KEYS.map((key) => [key, "off"])) as Record<string, Toggle>,
     sdd: { openspec: "auto", speckit: "auto", bmad: "auto", agentos: "auto" },
   };
 }

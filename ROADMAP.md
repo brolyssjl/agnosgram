@@ -16,8 +16,9 @@ lean on the tool*, not feature count.
 | `0.1.0` | Milestone 1 (done) | Core capture works; installable from GitHub. Early. |
 | `0.2.0` | Published to npm | `npx agnosgram` / `npm i -g`. Still the M1 surface. |
 | `0.5.0` (beta) | Milestone 2 done + format freeze | First release safe to adopt on a real - even legacy - project. Self-maintaining: schema-validated, `doctor` catches rot, `distill` curates. The format is frozen. |
-| **`0.8.0` (RC)** | **Milestone 3 done** | **Feature-complete core** incl. `advise` (the landmine-catcher) and `pack`/`show`. Release candidate. |
-| `1.0.0` | Milestone 4 + real-world soak | Adapters, skill/plugin, docs, dogfooded for months. Stable CLI + format. |
+| `0.8.0` (RC) | Milestone 3 done | Feature-complete core incl. `advise` (the landmine-catcher) and `pack`/`show`. Release candidate. |
+| **`0.9.0`** | **Milestone 4 done** | **Reach**: every mainstream adapter, opt-in Claude Code hooks, `install.sh` + binaries, deeper SDD coexistence. Still pre-1.0 - the docs site and a real-project case study wait for the soak below. |
+| `1.0.0` | `0.9.0` + real-world soak | Dogfooded for months on a real (legacy) project. Stable CLI + format declared. |
 | `1.x+` | Milestone 5 | Reflexive self-improvement loop and beyond. |
 
 **The "more stable, not quite 1.0" point you asked about is `0.5.0`** - the end of
@@ -61,13 +62,17 @@ the release to adopt on the legacy project._
 - [x] Tier-2 end-to-end token evals (task suite × format matrix)
 - [x] Faithful `@toon-format` encoder in bench for real small-object numbers (see LES-002)
 
-## Milestone 4 - Reach & ergonomics · toward `1.0.0`
-- [ ] Remaining adapters: Windsurf, Cline/Roo, OpenCode, Codex
-- [ ] Claude Code skill/plugin + `SessionStart`/`Stop` hooks (auto-`pack` / auto-`log`)
-- [ ] `install.sh` (detect Node → npm, else prebuilt binary) + `bun build --compile` / Node SEA binary in releases
-- [ ] Deeper SDD coexistence (OpenSpec / Spec Kit / BMAD / Agent OS behaviors)
+## Milestone 4 - Reach & ergonomics · `0.9.0` ✅ done
+- [x] Remaining adapters: Windsurf, Cline/Roo, OpenCode, Codex
+- [x] Claude Code skill + `SessionStart`/`Stop` hooks (auto-`pack` / auto-`log`), opt-in via `agnosgram adapt --claude-hooks`
+- [x] `install.sh` (detect Node → npm, else prebuilt binary) + `bun build --compile` / Node SEA binary in releases
+- [x] Deeper SDD coexistence: adapter hints point at the actual detected spec directory; `init` acknowledges an existing SDD setup
+
+### Deferred to the `1.0.0` soak period
+Moved out of Milestone 4 rather than blocking `0.9.0` on them: both need real-world
+usage on a project that hasn't happened yet.
 - [ ] Docs site + real-project case study (the legacy project)
-- [ ] `1.0.0`: format + core CLI declared stable after real-world soak
+- [ ] `1.0.0`: format + core CLI declared stable after real-world soak (dogfood `0.9.0` on the legacy project first)
 
 ## Milestone 5 - Reflexive loop · `1.x+`
 _Agnosgram uses Agnosgram to evolve Agnosgram. Constraints held: the CLI never calls an
