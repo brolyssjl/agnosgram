@@ -101,7 +101,21 @@ async function buildWithNodeSea() {
     "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2",
   ];
   if (process.platform === "darwin") postjectArgs.push("--macho-segment-name", "NODE_SEA");
-  const res = spawnSync("npx", postjectArgs, { stdio: "inherit", cwd: root });
+  // shell: true on Windows so npx resolves to npx.cmd via PATHEXT - spawnSync("npx", ...)
+  // without a shell only finds a literal npx(.exe), which doesn't exist there.
+  const res = spawnSync("npx", postjectArgs, {
+    stdio: "inherit",
+    cwd: root,
+    shell: process.platform === "win32",
+  });
+  if (res.error) {
+    process.stderr.write(
+      `Could not run npx: ${res.error.message}\n` +
+        "Make sure Node/npm (and therefore npx) is on PATH, then retry.\n",
+    );
+    process.exitCode = 1;
+    return;
+  }
   if (res.status !== 0) {
     process.stderr.write(
       "postject failed - install it first: npm install --no-save postject\n" +
