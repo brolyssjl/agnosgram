@@ -1,15 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter, type SddHint } from "../adapters/index.js";
-import { installClaudeHooks } from "../core/claudeHooks.js";
+import { hooksInstalled, installClaudeHooks } from "../core/claudeHooks.js";
 import { loadConfig, saveConfig, type AgnosgramConfig, type Toggle } from "../core/config.js";
 import { AGENT_TARGETS, detectAgents, detectSdd } from "../core/detect.js";
 import { upsertManagedBlock } from "../core/markers.js";
 import { info, printJson, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore } from "../core/paths.js";
+import { writeIfChanged, type WriteAction } from "../core/writeFile.js";
 
-export type AdaptAction = "created" | "updated" | "unchanged";
+export type AdaptAction = WriteAction;
 
 export interface AdaptResult {
   adapter: string;
@@ -61,15 +62,10 @@ export function applyAdapter(root: string, adapter: Adapter, sddHints: SddHint[]
   }
 
   const next = upsertManagedBlock(existing, body);
-  const existedBefore = existsSync(target);
-
-  if (existedBefore && next === existing) {
-    return { adapter: adapter.key, path: relPath, action: "unchanged" };
-  }
 
   try {
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, next);
+    const result = writeIfChanged(root, relPath, next);
+    return { adapter: adapter.key, path: result.path, action: result.action };
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     throw new UserError(
@@ -78,11 +74,6 @@ export function applyAdapter(root: string, adapter: Adapter, sddHints: SddHint[]
         `\`agnosgram adapt ${adapter.key}\`.`,
     );
   }
-  return {
-    adapter: adapter.key,
-    path: relPath,
-    action: existedBefore ? "updated" : "created",
-  };
 }
 
 /** Adapters that should be written when no explicit targets are given. */
@@ -135,7 +126,10 @@ export function runAdapt(argv: string[]): void {
     targets = resolveEnabledAdapters(root, config);
   }
 
-  const claudeHooks = values["claude-hooks"];
+  // --refresh also picks up hooks a prior run already installed, so an upgrade
+  // (which regenerates the hook scripts' content) doesn't require remembering
+  // to pass --claude-hooks again.
+  const claudeHooks = values["claude-hooks"] || (values.refresh && hooksInstalled(root));
 
   if (targets.length === 0 && !claudeHooks) {
     const detectedHint = detectAgents(root)

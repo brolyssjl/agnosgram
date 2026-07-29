@@ -1,6 +1,7 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { UserError } from "./output.js";
+import { writeIfChanged, type WriteResult } from "./writeFile.js";
 
 /**
  * Opt-in Claude Code integration (`agnosgram adapt --claude-hooks`): a SessionStart
@@ -109,25 +110,6 @@ reviewed in PRs). The CLI never calls an LLM and sends no telemetry.
 `;
 }
 
-interface WriteResult {
-  path: string;
-  action: "created" | "updated" | "unchanged";
-}
-
-/** Write a fully agnosgram-owned file (safe to overwrite whole; idempotent by content diff). */
-function writeOwnFile(root: string, relPath: string, content: string, executable: boolean): WriteResult {
-  const target = join(root, relPath);
-  mkdirSync(dirname(target), { recursive: true });
-  const existedBefore = existsSync(target);
-  const before = existedBefore ? readFileSync(target, "utf8") : null;
-  if (before !== content) {
-    writeFileSync(target, content);
-  }
-  if (executable) chmodSync(target, 0o755);
-  const action: WriteResult["action"] = before === content ? "unchanged" : existedBefore ? "updated" : "created";
-  return { path: relPath, action };
-}
-
 interface HookGroup {
   matcher?: string;
   hooks: Array<Record<string, unknown>>;
@@ -184,16 +166,20 @@ export interface ClaudeHooksResult {
   written: WriteResult[];
 }
 
+/** True when a previous `--claude-hooks` run already installed the SessionStart hook. */
+export function hooksInstalled(root: string): boolean {
+  return existsSync(join(root, HOOKS_REL_DIR, SESSION_START_SCRIPT));
+}
+
 export function installClaudeHooks(root: string): ClaudeHooksResult {
   const written: WriteResult[] = [];
 
-  written.push(writeOwnFile(root, `${HOOKS_REL_DIR}/${SESSION_START_SCRIPT}`, sessionStartScriptContent(), true));
-  written.push(writeOwnFile(root, `${HOOKS_REL_DIR}/${STOP_SCRIPT}`, stopScriptContent(), true));
+  written.push(writeIfChanged(root, `${HOOKS_REL_DIR}/${SESSION_START_SCRIPT}`, sessionStartScriptContent(), { executable: true }));
+  written.push(writeIfChanged(root, `${HOOKS_REL_DIR}/${STOP_SCRIPT}`, stopScriptContent(), { executable: true }));
 
   const settingsPath = join(root, SETTINGS_REL_PATH);
   let settings: Record<string, unknown> = {};
-  const settingsExisted = existsSync(settingsPath);
-  if (settingsExisted) {
+  if (existsSync(settingsPath)) {
     const raw = readFileSync(settingsPath, "utf8");
     try {
       settings = JSON.parse(raw);
@@ -232,18 +218,10 @@ export function installClaudeHooks(root: string): ClaudeHooksResult {
   hooks.Stop = upsertHookGroup(hooks.Stop, "Stop", undefined, stopHook, STOP_SCRIPT);
   settings.hooks = hooks;
 
-  const before = settingsExisted ? readFileSync(settingsPath, "utf8") : null;
   const next = JSON.stringify(settings, null, 2) + "\n";
-  if (before !== next) {
-    mkdirSync(dirname(settingsPath), { recursive: true });
-    writeFileSync(settingsPath, next);
-  }
-  written.push({
-    path: SETTINGS_REL_PATH,
-    action: before === next ? "unchanged" : settingsExisted ? "updated" : "created",
-  });
+  written.push(writeIfChanged(root, SETTINGS_REL_PATH, next));
 
-  written.push(writeOwnFile(root, SKILL_REL_PATH, skillContent(), false));
+  written.push(writeIfChanged(root, SKILL_REL_PATH, skillContent()));
 
   return { written };
 }

@@ -7,10 +7,12 @@ remembering to run commands by hand.
 ```bash
 agnosgram adapt --claude-hooks             # just the hooks + skill
 agnosgram adapt claude --claude-hooks       # also (re)write CLAUDE.md's pointer block
+agnosgram adapt --refresh                  # re-apply, including hooks IF already installed
 ```
 
-Nothing here ever happens silently: the flag is required every time, and the
-command prints exactly what it wrote or updated, e.g.:
+Nothing here ever happens silently: `--claude-hooks` (or a prior run having already
+installed the hooks, combined with `--refresh`) is required, and the command
+prints exactly what it wrote or updated, e.g.:
 
 ```
 Claude Code hooks + skill (SessionStart runs `agnosgram pack`, Stop reminds `agnosgram log`):
@@ -53,7 +55,10 @@ that:
   is safe to retry after that.
 
 Run it again any time (after an agnosgram upgrade, or if you deleted the hook
-scripts) - it reports `unchanged` for anything already in place.
+scripts) - it reports `unchanged` for anything already in place. After the first
+`--claude-hooks` run, `agnosgram adapt --refresh` alone picks the hooks back up
+too (it detects they're already installed), so upgrading doesn't require
+remembering the flag again.
 
 ## Requirements
 

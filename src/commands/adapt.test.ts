@@ -164,3 +164,31 @@ test("adapt --claude-hooks installs hooks and a skill without requiring an adapt
     process.chdir(cwd);
   }
 });
+
+test("adapt --refresh picks hooks back up once already installed, without --claude-hooks", () => {
+  const cwd = process.cwd();
+  process.chdir(root);
+  try {
+    runInit(["--adapt", "none"]);
+    runAdapt(["--claude-hooks"]);
+    const before = readFileSync(join(root, ".claude/hooks/agnosgram-session-start.mjs"), "utf8");
+
+    assert.doesNotThrow(() => runAdapt(["--refresh"]));
+    const after = readFileSync(join(root, ".claude/hooks/agnosgram-session-start.mjs"), "utf8");
+    assert.equal(after, before);
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
+test("adapt --refresh alone does not install hooks that were never opted into", () => {
+  const cwd = process.cwd();
+  process.chdir(root);
+  try {
+    runInit(["--adapt", "none"]);
+    runAdapt(["claude", "--refresh"]);
+    assert.ok(!existsSync(join(root, ".claude/hooks/agnosgram-session-start.mjs")));
+  } finally {
+    process.chdir(cwd);
+  }
+});
