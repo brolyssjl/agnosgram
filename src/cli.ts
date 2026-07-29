@@ -16,7 +16,8 @@ const HELP = `agnosgram — agent-agnostic, per-project memory (plain Markdown i
 
 Usage:
   agnosgram init [--adapt <list|none>] [--force] [--no-journal-commit] [--json]
-  agnosgram adapt [claude|cursor|windsurf|cline|roo|agents ...] [--all] [--refresh] [--json]
+  agnosgram adapt [claude|cursor|windsurf|cline|roo|agents ...] [--all] [--refresh]
+                  [--claude-hooks] [--json]
   agnosgram log   [--did .. --learned .. --decided .. --avoid .. --next ..]
                   [--agent <name>] [--branch <name>] [--stdin] [--format json|toon]
   agnosgram doctor [--strict] [--format json|toon]
@@ -30,6 +31,7 @@ Usage:
 Commands:
   init      Scaffold .agnosgram/, detect SDD frameworks + agents, write adapters.
   adapt     Insert/refresh the managed pointer block in an agent's config file.
+            --claude-hooks installs opt-in SessionStart/Stop hooks + a skill.
   log       Append a journal entry (agents call this at session end).
   doctor    Lint the store: schema, staleness, budgets, links, ids, safety.
   distill   Emit a compaction prompt; validate a distilled result; archive months.

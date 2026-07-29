@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { ADAPTERS } from "../adapters/index.js";
-import { applyAdapter } from "./adapt.js";
+import { applyAdapter, runAdapt } from "./adapt.js";
+import { runInit } from "./init.js";
 
 let root: string;
 
@@ -78,4 +79,20 @@ test("windsurf adapter writes always_on trigger frontmatter", () => {
   applyAdapter(root, ADAPTERS.windsurf!, []);
   const content = readFileSync(join(root, ".windsurf/rules/agnosgram.md"), "utf8");
   assert.ok(content.startsWith("---\ntrigger: always_on\n---\n"));
+});
+
+test("adapt --claude-hooks installs hooks and a skill without requiring an adapter target", () => {
+  const cwd = process.cwd();
+  process.chdir(root);
+  try {
+    runInit(["--adapt", "none"]);
+    runAdapt(["--claude-hooks"]);
+    assert.ok(existsSync(join(root, ".claude/hooks/agnosgram-session-start.mjs")));
+    assert.ok(existsSync(join(root, ".claude/hooks/agnosgram-stop-reminder.mjs")));
+    assert.ok(existsSync(join(root, ".claude/skills/agnosgram/SKILL.md")));
+    const settings = JSON.parse(readFileSync(join(root, ".claude/settings.json"), "utf8"));
+    assert.ok(settings.hooks.SessionStart[0].hooks[0].command.includes("agnosgram-session-start.mjs"));
+  } finally {
+    process.chdir(cwd);
+  }
 });

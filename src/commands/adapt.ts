@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter, type SddHint } from "../adapters/index.js";
+import { installClaudeHooks } from "../core/claudeHooks.js";
 import { loadConfig, saveConfig, type AgnosgramConfig, type Toggle } from "../core/config.js";
 import { AGENT_TARGETS, SDD_FRAMEWORKS, detectAgents, detectSdd } from "../core/detect.js";
 import { upsertManagedBlock } from "../core/markers.js";
@@ -86,6 +87,7 @@ export function runAdapt(argv: string[]): void {
       all: { type: "boolean", default: false },
       refresh: { type: "boolean", default: false },
       json: { type: "boolean", default: false },
+      "claude-hooks": { type: "boolean", default: false },
     },
   });
 
@@ -109,22 +111,29 @@ export function runAdapt(argv: string[]): void {
     targets = resolveEnabledAdapters(root, config);
   }
 
-  if (targets.length === 0) {
+  const claudeHooks = values["claude-hooks"];
+
+  if (targets.length === 0 && !claudeHooks) {
     const detectedHint = detectAgents(root)
       .map((a) => a.name)
       .join(", ");
     throw new UserError(
       "No adapters to write. Name one explicitly (e.g. `agnosgram adapt claude`), " +
-        "use `--all`, or enable adapters in config.yml." +
+        "use `--all`, enable adapters in config.yml, or pass `--claude-hooks`." +
         (detectedHint ? `\nDetected agents in this repo: ${detectedHint}.` : ""),
     );
   }
 
   const sddHints = resolveSddHints(root, config);
   const results = targets.map((key) => applyAdapter(root, ADAPTERS[key]!, sddHints));
+  const hooksResult = claudeHooks ? installClaudeHooks(root) : null;
 
   if (values.json) {
-    printJson({ adapters: results, sdd: sddHints });
+    printJson({
+      adapters: results,
+      sdd: sddHints,
+      ...(hooksResult ? { claudeHooks: hooksResult.written } : {}),
+    });
     return;
   }
 
@@ -132,8 +141,15 @@ export function runAdapt(argv: string[]): void {
     const verb = r.action === "unchanged" ? "unchanged" : r.action;
     info(`  ${verb.padEnd(9)} ${r.path}  (${ADAPTERS[r.adapter]!.name})`);
   }
-  if (sddHints.length > 0) {
+  if (sddHints.length > 0 && results.length > 0) {
     info(`\nSDD hints included: ${sddHints.map((h) => `${h.key} (${h.matchedPath})`).join(", ")}`);
+  }
+  if (hooksResult) {
+    info("");
+    info("Claude Code hooks + skill (SessionStart runs `agnosgram pack`, Stop reminds `agnosgram log`):");
+    for (const w of hooksResult.written) {
+      info(`  ${w.action.padEnd(9)} ${w.path}`);
+    }
   }
 }
 

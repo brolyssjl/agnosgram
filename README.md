@@ -73,7 +73,7 @@ signals and per-tool notes.
 | Command | What it does |
 |---|---|
 | `agnosgram init` | Scaffold `.agnosgram/`, detect SDD frameworks + agents, write adapters. `--adapt <list\|none>`, `--force`, `--no-journal-commit`, `--json`. |
-| `agnosgram adapt [claude\|cursor\|agents ...]` | Insert/refresh the managed pointer block. `--all`, `--refresh`, `--json`. |
+| `agnosgram adapt [claude\|cursor\|windsurf\|cline\|roo\|agents ...]` | Insert/refresh the managed pointer block. `--all`, `--refresh`, `--claude-hooks` (opt-in Claude Code `SessionStart`/`Stop` hooks + skill, see [guide](docs/claude-hooks.md)), `--json`. |
 | `agnosgram log` | Append a journal entry from flags (`--did/--learned/--decided/--avoid/--next`) or `--stdin`. Auto-detects branch. `--json` for machine consumers. |
 | `agnosgram doctor` | Lint the store: schema, staleness, budgets, broken links, duplicate/near-duplicate ids, and safety lints (secret scan + prompt-injection guard). `--strict`, `--json`. See [guide](docs/doctor.md). |
 | `agnosgram distill` | Emit a compaction prompt (merge via `supersedes:`, never append near-dups); `--validate <file>` checks a distilled result; `--archive <YYYY-MM>` retires an absorbed journal month. See [guide](docs/distill.md). |
