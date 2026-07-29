@@ -24,7 +24,7 @@ every adapter.
 | Claude Code | `claude` | `CLAUDE.md` (shared) | `CLAUDE.md`, `.claude/` |
 | Cursor | `cursor` | `.cursor/rules/agnosgram.mdc` (dedicated) | `.cursor/` |
 | Windsurf | `windsurf` | `.windsurf/rules/agnosgram.md` (dedicated, `trigger: always_on`) | `.windsurf/`, `.windsurfrules` |
-| Cline | `cline` | `.clinerules/agnosgram.md` (dedicated) | `.clinerules/` |
+| Cline | `cline` | `.clinerules/agnosgram.md` (dedicated), or the legacy `.clinerules` file itself if it already exists | `.clinerules` |
 | Roo Code | `roo` | `.roo/rules/agnosgram.md` (dedicated) | `.roo/`, `.roorules` |
 | Codex, OpenCode, or any other `AGENTS.md` reader | `agents` | `AGENTS.md` (shared) | `AGENTS.md`, `.codex/`, `.opencode/`, `opencode.json` |
 
@@ -53,3 +53,29 @@ present, the pointer body gets an extra "Coexisting tools detected" section that
 names the actual directory found (e.g. `openspec/`, `.bmad-core/`) so the agent
 knows where specs live without agnosgram ever reading or editing them. See
 `config.yml`'s `sdd` toggles to force a hint on/off regardless of detection.
+
+## Cline: legacy single-file `.clinerules`
+
+Cline's older convention was a single `.clinerules` file; the current one is a
+`.clinerules/` directory of rule files (what `agnosgram adapt cline` writes by
+default: `.clinerules/agnosgram.md`). If a project already has the legacy
+single-file form, `init`/`adapt` write there instead of creating a colliding
+`.clinerules/` directory - the managed block is merged into that file exactly
+like `CLAUDE.md` or `AGENTS.md`. `AdaptResult.path` reflects whichever form was
+actually used.
+
+## `--json` output
+
+Both `init --json` and `adapt --json` report detected/applied SDD frameworks as
+`{ key, matchedPath }` objects (e.g. `{ "key": "openspec", "matchedPath": "openspec/" }`)
+under `detectedSdd` (init) and `sdd` (adapt) respectively - the field name is
+`matchedPath` in both, matching the internal `SddHint`/`SddDetection` types.
+`matchedPath` is only ever a real, `statSync`-confirmed directory; a framework
+forced `on` in `config.yml` without a detected directory reports `matchedPath:
+null` rather than fabricating a path that may not exist.
+
+**Note for anyone scripting against this:** prior to `0.9.0`, both fields were a
+plain array of framework key strings (`["openspec"]`). `0.9.0` is pre-`1.0.0`, so
+this shape change ships without a compatibility path - update any script reading
+`detectedSdd`/`sdd` to read `.key` off each object instead of using the entries
+directly.

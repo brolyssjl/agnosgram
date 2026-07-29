@@ -1,9 +1,13 @@
 import { SDD_FRAMEWORKS } from "../core/detect.js";
 
-/** An SDD framework to hint at, plus the specific directory to point the agent to. */
+/**
+ * An SDD framework to hint at, plus the specific directory to point the agent to.
+ * `matchedPath` is `null` when the framework was forced `on` in `config.yml`
+ * without ever being detected on disk - there is no real path to point at.
+ */
 export interface SddHint {
   key: string;
-  matchedPath: string;
+  matchedPath: string | null;
 }
 
 /**
@@ -75,17 +79,24 @@ export const ADAPTERS: Record<string, Adapter> = {
 
 export const ADAPTER_KEYS = Object.keys(ADAPTERS);
 
+/** One hint line, phrased so it never claims a path that isn't actually there. */
+function sddLine(path: string | null, name: string, tail: string): string {
+  return path
+    ? `- ${name} is present (\`${path}\`): ${tail}`
+    : `- ${name} support is enabled (no directory detected on disk): ${tail}`;
+}
+
 /** Hint lines describing coexistence with each detected SDD framework, pointing at the actual matched directory. */
 function sddHintLines(hints: SddHint[]): string[] {
-  const templates: Record<string, (path: string) => string> = {
+  const templates: Record<string, (path: string | null) => string> = {
     openspec: (p) =>
-      `- OpenSpec is present (\`${p}\`): specs live there; memory records *why* and *what failed*, linking to specs by path.`,
+      sddLine(p, "OpenSpec", "specs live there; memory records *why* and *what failed*, linking to specs by path."),
     speckit: (p) =>
-      `- Spec Kit is present (\`${p}\`): the constitution stays authoritative for principles; Agnosgram holds empirical lessons.`,
+      sddLine(p, "Spec Kit", "the constitution stays authoritative for principles; Agnosgram holds empirical lessons."),
     bmad: (p) =>
-      `- BMAD is present (\`${p}\`): QA/review steps should read \`.agnosgram/lessons/pitfalls.md\`; retro output goes to the journal.`,
+      sddLine(p, "BMAD", "QA/review steps should read `.agnosgram/lessons/pitfalls.md`; retro output goes to the journal."),
     agentos: (p) =>
-      `- Agent OS is present (\`${p}\`): \`standards/\` stays authoritative for style; Agnosgram holds project-local exceptions and history.`,
+      sddLine(p, "Agent OS", "`standards/` stays authoritative for style; Agnosgram holds project-local exceptions and history."),
   };
   const known = new Set(SDD_FRAMEWORKS.map((f) => f.key));
   return hints

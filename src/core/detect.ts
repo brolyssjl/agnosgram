@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -43,14 +43,21 @@ export const AGENT_TARGETS: AgentTarget[] = [
 
 /** An SDD framework found on disk, plus which marker matched (for pointing hints at it). */
 export interface SddDetection extends SddFramework {
-  /** The specific marker path that was found, e.g. `openspec/`. */
+  /**
+   * The specific marker path that was found, e.g. `openspec/`. Only ever carries
+   * a trailing slash when it's a real, `statSync`-confirmed directory - a marker
+   * that happens to exist as a plain file is reported without one, so callers
+   * never assert a directory that isn't actually there.
+   */
   matchedPath: string;
 }
 
 export function detectSdd(root: string): SddDetection[] {
   return SDD_FRAMEWORKS.flatMap((f) => {
     const hit = f.markers.find((m) => existsSync(join(root, m)));
-    return hit ? [{ ...f, matchedPath: `${hit}/` }] : [];
+    if (!hit) return [];
+    const isDirectory = statSync(join(root, hit)).isDirectory();
+    return [{ ...f, matchedPath: isDirectory ? `${hit}/` : hit }];
   });
 }
 

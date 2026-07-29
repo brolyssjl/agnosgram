@@ -108,7 +108,7 @@ export function runInit(argv: string[]): void {
     printJson({
       root,
       created: `${root}/.agnosgram`,
-      detectedSdd: detectedSdd.map((f) => ({ key: f.key, path: f.matchedPath })),
+      detectedSdd: detectedSdd.map((f) => ({ key: f.key, matchedPath: f.matchedPath })),
       detectedAgents: detectedAgents.map((a) => a.key),
       adapters: adaptResults,
     });

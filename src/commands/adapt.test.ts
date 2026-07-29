@@ -4,8 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { ADAPTERS } from "../adapters/index.js";
+import { defaultConfig } from "../core/config.js";
 import { UserError } from "../core/output.js";
-import { applyAdapter, runAdapt } from "./adapt.js";
+import { applyAdapter, resolveSddHints, runAdapt } from "./adapt.js";
 import { runInit } from "./init.js";
 
 let root: string;
@@ -59,6 +60,23 @@ test("SDD hints appear in the pointer body when passed", () => {
   applyAdapter(root, ADAPTERS.agents!, [{ key: "openspec", matchedPath: "openspec/" }]);
   const out = readFileSync(join(root, "AGENTS.md"), "utf8");
   assert.ok(out.includes("openspec/"));
+});
+
+test("a forced-on SDD hint with no detected directory never fabricates a path", () => {
+  applyAdapter(root, ADAPTERS.agents!, [{ key: "openspec", matchedPath: null }]);
+  const out = readFileSync(join(root, "AGENTS.md"), "utf8");
+  assert.ok(out.includes("no directory detected on disk"));
+  assert.ok(!out.includes("openspec/"));
+});
+
+test("resolveSddHints reports matchedPath: null when a framework is forced on but never detected", () => {
+  const config = defaultConfig();
+  config.sdd.openspec = "on";
+  const hints = resolveSddHints(root, config);
+  assert.deepEqual(
+    hints.find((h) => h.key === "openspec"),
+    { key: "openspec", matchedPath: null },
+  );
 });
 
 for (const key of ["windsurf", "cline", "roo"] as const) {

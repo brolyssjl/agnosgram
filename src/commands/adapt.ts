@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter, type SddHint } from "../adapters/index.js";
 import { installClaudeHooks } from "../core/claudeHooks.js";
 import { loadConfig, saveConfig, type AgnosgramConfig, type Toggle } from "../core/config.js";
-import { AGENT_TARGETS, SDD_FRAMEWORKS, detectAgents, detectSdd } from "../core/detect.js";
+import { AGENT_TARGETS, detectAgents, detectSdd } from "../core/detect.js";
 import { upsertManagedBlock } from "../core/markers.js";
 import { info, printJson, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore } from "../core/paths.js";
@@ -19,18 +19,16 @@ export interface AdaptResult {
 
 /**
  * Which SDD frameworks are active for hint lines, given config + detection, each
- * paired with the specific directory that was actually found (falling back to the
- * framework's primary marker when forced "on" without a detected directory).
+ * paired with the specific directory that was actually found on disk. A
+ * framework forced "on" in config without ever being detected gets `matchedPath:
+ * null` - there's nothing real to point at, so the hint text says so instead of
+ * fabricating a path.
  */
 export function resolveSddHints(root: string, config: AgnosgramConfig): SddHint[] {
   const detected = new Map(detectSdd(root).map((f) => [f.key, f.matchedPath]));
   return Object.entries(config.sdd)
     .filter(([key, toggle]) => toggle === "on" || (toggle === "auto" && detected.has(key)))
-    .map(([key]) => {
-      const framework = SDD_FRAMEWORKS.find((f) => f.key === key);
-      const matchedPath = detected.get(key) ?? (framework ? `${framework.markers[0]}/` : "");
-      return { key, matchedPath };
-    });
+    .map(([key]) => ({ key, matchedPath: detected.get(key) ?? null }));
 }
 
 /**
@@ -168,7 +166,10 @@ export function runAdapt(argv: string[]): void {
     info(`  ${verb.padEnd(9)} ${r.path}  (${ADAPTERS[r.adapter]!.name})`);
   }
   if (sddHints.length > 0 && results.length > 0) {
-    info(`\nSDD hints included: ${sddHints.map((h) => `${h.key} (${h.matchedPath})`).join(", ")}`);
+    const summary = sddHints
+      .map((h) => (h.matchedPath ? `${h.key} (${h.matchedPath})` : `${h.key} (no directory detected)`))
+      .join(", ");
+    info(`\nSDD hints included: ${summary}`);
   }
   if (hooksResult) {
     info("");
