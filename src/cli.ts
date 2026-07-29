@@ -16,7 +16,7 @@ const HELP = `agnosgram — agent-agnostic, per-project memory (plain Markdown i
 
 Usage:
   agnosgram init [--adapt <list|none>] [--force] [--no-journal-commit] [--json]
-  agnosgram adapt [claude|cursor|agents ...] [--all] [--refresh] [--json]
+  agnosgram adapt [claude|cursor|windsurf|cline|roo|agents ...] [--all] [--refresh] [--json]
   agnosgram log   [--did .. --learned .. --decided .. --avoid .. --next ..]
                   [--agent <name>] [--branch <name>] [--stdin] [--format json|toon]
   agnosgram doctor [--strict] [--format json|toon]

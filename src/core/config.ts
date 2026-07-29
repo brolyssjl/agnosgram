@@ -33,7 +33,7 @@ export function defaultConfig(): AgnosgramConfig {
     journal: { committed: true },
     staleness_days: DEFAULT_STALENESS_DAYS,
     budgets: { ...DEFAULT_BUDGETS },
-    adapters: { claude: "off", cursor: "off", agents: "off" },
+    adapters: { claude: "off", cursor: "off", windsurf: "off", cline: "off", roo: "off", agents: "off" },
     sdd: { openspec: "auto", speckit: "auto", bmad: "auto", agentos: "auto" },
   };
 }

@@ -1,5 +1,11 @@
 import { SDD_FRAMEWORKS } from "../core/detect.js";
 
+/** An SDD framework to hint at, plus the specific directory to point the agent to. */
+export interface SddHint {
+  key: string;
+  matchedPath: string;
+}
+
 /**
  * An adapter targets one agent's config file. Every adapter injects the *same*
  * ~10-line pointer body (principle 3: one source template; content lives only in
@@ -31,6 +37,25 @@ export const ADAPTERS: Record<string, Adapter> = {
     dedicatedFile: true,
     preamble: "---\ndescription: Project memory protocol (Agnosgram)\nalwaysApply: true\n---\n",
   },
+  windsurf: {
+    key: "windsurf",
+    name: "Windsurf",
+    targetPath: ".windsurf/rules/agnosgram.md",
+    dedicatedFile: true,
+    preamble: "---\ntrigger: always_on\n---\n",
+  },
+  cline: {
+    key: "cline",
+    name: "Cline",
+    targetPath: ".clinerules/agnosgram.md",
+    dedicatedFile: true,
+  },
+  roo: {
+    key: "roo",
+    name: "Roo Code",
+    targetPath: ".roo/rules/agnosgram.md",
+    dedicatedFile: true,
+  },
   agents: {
     key: "agents",
     name: "AGENTS.md",
@@ -41,24 +66,26 @@ export const ADAPTERS: Record<string, Adapter> = {
 
 export const ADAPTER_KEYS = Object.keys(ADAPTERS);
 
-/** Hint lines describing coexistence with each detected SDD framework. */
-function sddHintLines(sddKeys: string[]): string[] {
-  const hints: Record<string, string> = {
-    openspec:
-      "- OpenSpec is present (`openspec/`): specs live there; memory records *why* and *what failed*, linking to specs by path.",
-    speckit:
-      "- Spec Kit is present (`.specify/`): the constitution stays authoritative for principles; Agnosgram holds empirical lessons.",
-    bmad:
-      "- BMAD is present: QA/review steps should read `.agnosgram/lessons/pitfalls.md`; retro output goes to the journal.",
-    agentos:
-      "- Agent OS is present: `standards/` stays authoritative for style; Agnosgram holds project-local exceptions and history.",
+/** Hint lines describing coexistence with each detected SDD framework, pointing at the actual matched directory. */
+function sddHintLines(hints: SddHint[]): string[] {
+  const templates: Record<string, (path: string) => string> = {
+    openspec: (p) =>
+      `- OpenSpec is present (\`${p}\`): specs live there; memory records *why* and *what failed*, linking to specs by path.`,
+    speckit: (p) =>
+      `- Spec Kit is present (\`${p}\`): the constitution stays authoritative for principles; Agnosgram holds empirical lessons.`,
+    bmad: (p) =>
+      `- BMAD is present (\`${p}\`): QA/review steps should read \`.agnosgram/lessons/pitfalls.md\`; retro output goes to the journal.`,
+    agentos: (p) =>
+      `- Agent OS is present (\`${p}\`): \`standards/\` stays authoritative for style; Agnosgram holds project-local exceptions and history.`,
   };
   const known = new Set(SDD_FRAMEWORKS.map((f) => f.key));
-  return sddKeys.filter((k) => known.has(k) && hints[k]).map((k) => hints[k]!);
+  return hints
+    .filter((h) => known.has(h.key) && templates[h.key])
+    .map((h) => templates[h.key]!(h.matchedPath));
 }
 
 /** The shared pointer body injected into every adapter target. */
-export function buildPointerBody(sddKeys: string[] = []): string {
+export function buildPointerBody(sddHints: SddHint[] = []): string {
   const lines = [
     "## Project memory (Agnosgram)",
     "",
@@ -71,7 +98,7 @@ export function buildPointerBody(sddKeys: string[] = []): string {
     "   areas you are about to touch.",
     "4. Before ending the session, record what happened with `agnosgram log`.",
   ];
-  const hints = sddHintLines(sddKeys);
+  const hints = sddHintLines(sddHints);
   if (hints.length > 0) {
     lines.push("", "Coexisting tools detected:", ...hints);
   }

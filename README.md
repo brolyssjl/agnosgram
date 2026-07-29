@@ -52,6 +52,22 @@ to read `.agnosgram/MEMORY.md` first. The block is idempotent - re-running `adap
 rewrites only that region and never touches your own content. `AGENTS.md` is the
 universal fallback for any agent.
 
+## Supported adapters
+
+| Tool | `adapt` key | Target file |
+|---|---|---|
+| Claude Code | `claude` | `CLAUDE.md` (shared, managed block) |
+| Cursor | `cursor` | `.cursor/rules/agnosgram.mdc` (dedicated) |
+| Windsurf | `windsurf` | `.windsurf/rules/agnosgram.md` (dedicated) |
+| Cline | `cline` | `.clinerules/agnosgram.md` (dedicated) |
+| Roo Code | `roo` | `.roo/rules/agnosgram.md` (dedicated) |
+| Codex, OpenCode, or any other `AGENTS.md` reader | `agents` | `AGENTS.md` (shared, managed block) |
+
+Codex and OpenCode both read `AGENTS.md` natively, so `init`/`adapt` detect them
+(`.codex/`, `.opencode/`, `opencode.json`) and route to the `agents` adapter instead
+of writing a duplicate file. See [docs/adapters.md](docs/adapters.md) for detection
+signals and per-tool notes.
+
 ## Commands
 
 | Command | What it does |
@@ -69,8 +85,9 @@ universal fallback for any agent.
 Judgment steps (`distill`, `bootstrap`, `advise`) **emit a prompt** for your agent
 and then validate the result mechanically - the CLI itself never calls an LLM.
 
-Coming next (Milestone 4): remaining adapters (Windsurf, Cline/Roo, OpenCode,
-Codex), a Claude Code skill/plugin with session hooks, and `install.sh` binaries.
+Milestone 4 added the remaining adapters (Windsurf, Cline/Roo, OpenCode, Codex), a
+Claude Code skill with session hooks (see [docs/claude-hooks.md](docs/claude-hooks.md)),
+and `install.sh` + prebuilt binaries (see [docs/install.md](docs/install.md)).
 
 ## Anti-rot
 

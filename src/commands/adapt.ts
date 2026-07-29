@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
-import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter } from "../adapters/index.js";
+import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter, type SddHint } from "../adapters/index.js";
 import { loadConfig, saveConfig, type AgnosgramConfig, type Toggle } from "../core/config.js";
-import { AGENT_TARGETS, detectAgents, detectSdd } from "../core/detect.js";
+import { AGENT_TARGETS, SDD_FRAMEWORKS, detectAgents, detectSdd } from "../core/detect.js";
 import { upsertManagedBlock } from "../core/markers.js";
 import { info, printJson, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore } from "../core/paths.js";
@@ -16,18 +16,26 @@ export interface AdaptResult {
   action: AdaptAction;
 }
 
-/** Which SDD frameworks are active for hint lines, given config + detection. */
-export function resolveSddKeys(root: string, config: AgnosgramConfig): string[] {
-  const detected = new Set(detectSdd(root).map((f) => f.key));
+/**
+ * Which SDD frameworks are active for hint lines, given config + detection, each
+ * paired with the specific directory that was actually found (falling back to the
+ * framework's primary marker when forced "on" without a detected directory).
+ */
+export function resolveSddHints(root: string, config: AgnosgramConfig): SddHint[] {
+  const detected = new Map(detectSdd(root).map((f) => [f.key, f.matchedPath]));
   return Object.entries(config.sdd)
     .filter(([key, toggle]) => toggle === "on" || (toggle === "auto" && detected.has(key)))
-    .map(([key]) => key);
+    .map(([key]) => {
+      const framework = SDD_FRAMEWORKS.find((f) => f.key === key);
+      const matchedPath = detected.get(key) ?? (framework ? `${framework.markers[0]}/` : "");
+      return { key, matchedPath };
+    });
 }
 
 /** Inject or refresh one adapter's managed block. Idempotent. */
-export function applyAdapter(root: string, adapter: Adapter, sddKeys: string[]): AdaptResult {
+export function applyAdapter(root: string, adapter: Adapter, sddHints: SddHint[]): AdaptResult {
   const target = join(root, adapter.targetPath);
-  const body = buildPointerBody(sddKeys);
+  const body = buildPointerBody(sddHints);
 
   let existing = "";
   if (existsSync(target)) {
@@ -112,11 +120,11 @@ export function runAdapt(argv: string[]): void {
     );
   }
 
-  const sddKeys = resolveSddKeys(root, config);
-  const results = targets.map((key) => applyAdapter(root, ADAPTERS[key]!, sddKeys));
+  const sddHints = resolveSddHints(root, config);
+  const results = targets.map((key) => applyAdapter(root, ADAPTERS[key]!, sddHints));
 
   if (values.json) {
-    printJson({ adapters: results, sdd: sddKeys });
+    printJson({ adapters: results, sdd: sddHints });
     return;
   }
 
@@ -124,8 +132,8 @@ export function runAdapt(argv: string[]): void {
     const verb = r.action === "unchanged" ? "unchanged" : r.action;
     info(`  ${verb.padEnd(9)} ${r.path}  (${ADAPTERS[r.adapter]!.name})`);
   }
-  if (sddKeys.length > 0) {
-    info(`\nSDD hints included: ${sddKeys.join(", ")}`);
+  if (sddHints.length > 0) {
+    info(`\nSDD hints included: ${sddHints.map((h) => `${h.key} (${h.matchedPath})`).join(", ")}`);
   }
 }
 

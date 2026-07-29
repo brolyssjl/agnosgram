@@ -54,7 +54,28 @@ test("cursor adapter writes a dedicated .mdc file with frontmatter", () => {
 });
 
 test("SDD hints appear in the pointer body when passed", () => {
-  applyAdapter(root, ADAPTERS.agents!, ["openspec"]);
+  applyAdapter(root, ADAPTERS.agents!, [{ key: "openspec", matchedPath: "openspec/" }]);
   const out = readFileSync(join(root, "AGENTS.md"), "utf8");
   assert.ok(out.includes("openspec/"));
+});
+
+for (const key of ["windsurf", "cline", "roo"] as const) {
+  test(`${key} adapter creates a dedicated file and is idempotent`, () => {
+    const first = applyAdapter(root, ADAPTERS[key]!, []);
+    assert.equal(first.action, "created");
+    const file = join(root, ADAPTERS[key]!.targetPath);
+    assert.ok(existsSync(file));
+    const contentA = readFileSync(file, "utf8");
+    assert.ok(contentA.includes(".agnosgram/MEMORY.md"));
+
+    const second = applyAdapter(root, ADAPTERS[key]!, []);
+    assert.equal(second.action, "unchanged");
+    assert.equal(readFileSync(file, "utf8"), contentA);
+  });
+}
+
+test("windsurf adapter writes always_on trigger frontmatter", () => {
+  applyAdapter(root, ADAPTERS.windsurf!, []);
+  const content = readFileSync(join(root, ".windsurf/rules/agnosgram.md"), "utf8");
+  assert.ok(content.startsWith("---\ntrigger: always_on\n---\n"));
 });

@@ -31,11 +31,27 @@ export interface AgentTarget {
 export const AGENT_TARGETS: AgentTarget[] = [
   { key: "claude", name: "Claude Code", signals: ["CLAUDE.md", ".claude"] },
   { key: "cursor", name: "Cursor", signals: [".cursor"] },
-  { key: "agents", name: "AGENTS.md (Codex / OpenCode / generic)", signals: ["AGENTS.md"] },
+  { key: "windsurf", name: "Windsurf", signals: [".windsurf", ".windsurfrules"] },
+  { key: "cline", name: "Cline", signals: [".clinerules"] },
+  { key: "roo", name: "Roo Code", signals: [".roo", ".roorules"] },
+  {
+    key: "agents",
+    name: "AGENTS.md (Codex / OpenCode / generic)",
+    signals: ["AGENTS.md", ".codex", ".opencode", "opencode.json"],
+  },
 ];
 
-export function detectSdd(root: string): SddFramework[] {
-  return SDD_FRAMEWORKS.filter((f) => f.markers.some((m) => existsSync(join(root, m))));
+/** An SDD framework found on disk, plus which marker matched (for pointing hints at it). */
+export interface SddDetection extends SddFramework {
+  /** The specific marker path that was found, e.g. `openspec/`. */
+  matchedPath: string;
+}
+
+export function detectSdd(root: string): SddDetection[] {
+  return SDD_FRAMEWORKS.flatMap((f) => {
+    const hit = f.markers.find((m) => existsSync(join(root, m)));
+    return hit ? [{ ...f, matchedPath: `${hit}/` }] : [];
+  });
 }
 
 export function detectAgents(root: string): AgentTarget[] {

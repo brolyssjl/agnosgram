@@ -19,7 +19,7 @@ import {
   statusMd,
   stackMd,
 } from "../core/templates.js";
-import { applyAdapter, resolveSddKeys, type AdaptResult } from "./adapt.js";
+import { applyAdapter, resolveSddHints, type AdaptResult } from "./adapt.js";
 
 function scaffold(root: string): void {
   const dir = memoryDir(root);
@@ -99,16 +99,16 @@ export function runInit(argv: string[]): void {
 
   saveConfig(root, config);
 
-  const sddKeys = resolveSddKeys(root, config);
+  const sddHints = resolveSddHints(root, config);
   const adaptResults: AdaptResult[] = adaptTargets.map((key) =>
-    applyAdapter(root, ADAPTERS[key]!, sddKeys),
+    applyAdapter(root, ADAPTERS[key]!, sddHints),
   );
 
   if (values.json) {
     printJson({
       root,
       created: `${root}/.agnosgram`,
-      detectedSdd: detectedSdd.map((f) => f.key),
+      detectedSdd: detectedSdd.map((f) => ({ key: f.key, path: f.matchedPath })),
       detectedAgents: detectedAgents.map((a) => a.key),
       adapters: adaptResults,
     });
@@ -119,7 +119,8 @@ export function runInit(argv: string[]): void {
   info("");
   info("  Scaffolded: MEMORY.md, config.yml, state/, context/, decisions/, lessons/, journal/");
   if (detectedSdd.length > 0) {
-    info(`  Detected SDD: ${detectedSdd.map((f) => f.name).join(", ")}`);
+    info(`  Detected SDD: ${detectedSdd.map((f) => `${f.name} (${f.matchedPath})`).join(", ")}`);
+    info("  Agnosgram will not touch these files - adapter hints will point agents at them.");
   }
   if (detectedAgents.length > 0) {
     info(`  Detected agents: ${detectedAgents.map((a) => a.name).join(", ")}`);
@@ -132,7 +133,7 @@ export function runInit(argv: string[]): void {
     }
   } else {
     info("");
-    info("  No adapters written. Add one with `agnosgram adapt claude|cursor|agents`.");
+    info(`  No adapters written. Add one with \`agnosgram adapt ${ADAPTER_KEYS.join("|")}\`.`);
   }
   info("");
   info("Next: fill in state/status.md and context/*, then commit .agnosgram/ to the repo.");
