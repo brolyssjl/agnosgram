@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter, type SddHint } from "../adapters/index.js";
@@ -33,9 +33,26 @@ export function resolveSddHints(root: string, config: AgnosgramConfig): SddHint[
     });
 }
 
+/**
+ * Resolve which path an adapter actually writes to for this project. Normally
+ * `targetPath`, but a legacy single-file convention (e.g. Cline's `.clinerules`
+ * file, predating the `.clinerules/` directory) takes over when that path already
+ * exists as a plain file - never `mkdir` a directory over an existing file.
+ */
+function resolveAdapterPath(root: string, adapter: Adapter): string {
+  if (adapter.legacyTargetPath) {
+    const legacyAbs = join(root, adapter.legacyTargetPath);
+    if (existsSync(legacyAbs) && statSync(legacyAbs).isFile()) {
+      return adapter.legacyTargetPath;
+    }
+  }
+  return adapter.targetPath;
+}
+
 /** Inject or refresh one adapter's managed block. Idempotent. */
 export function applyAdapter(root: string, adapter: Adapter, sddHints: SddHint[]): AdaptResult {
-  const target = join(root, adapter.targetPath);
+  const relPath = resolveAdapterPath(root, adapter);
+  const target = join(root, relPath);
   const body = buildPointerBody(sddHints);
 
   let existing = "";
@@ -49,14 +66,23 @@ export function applyAdapter(root: string, adapter: Adapter, sddHints: SddHint[]
   const existedBefore = existsSync(target);
 
   if (existedBefore && next === existing) {
-    return { adapter: adapter.key, path: adapter.targetPath, action: "unchanged" };
+    return { adapter: adapter.key, path: relPath, action: "unchanged" };
   }
 
-  mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, next);
+  try {
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, next);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new UserError(
+      `Could not write ${adapter.name}'s adapter file at ${relPath}: ${detail}. ` +
+        `Resolve the conflict (e.g. a file where a directory is expected) and re-run ` +
+        `\`agnosgram adapt ${adapter.key}\`.`,
+    );
+  }
   return {
     adapter: adapter.key,
-    path: adapter.targetPath,
+    path: relPath,
     action: existedBefore ? "updated" : "created",
   };
 }

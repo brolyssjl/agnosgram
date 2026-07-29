@@ -21,6 +21,14 @@ export interface Adapter {
   dedicatedFile: boolean;
   /** Content written above the managed block when creating a dedicated file. */
   preamble?: string;
+  /**
+   * A legacy single-file convention this tool also reads (e.g. Cline's older
+   * `.clinerules` file, before the `.clinerules/` directory convention). If this
+   * path already exists as a plain file when applying, write there instead of
+   * `targetPath`, merging into whatever the user already has - never `mkdir`
+   * over a file that's already there.
+   */
+  legacyTargetPath?: string;
 }
 
 export const ADAPTERS: Record<string, Adapter> = {
@@ -49,6 +57,7 @@ export const ADAPTERS: Record<string, Adapter> = {
     name: "Cline",
     targetPath: ".clinerules/agnosgram.md",
     dedicatedFile: true,
+    legacyTargetPath: ".clinerules",
   },
   roo: {
     key: "roo",

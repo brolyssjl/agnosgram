@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { ADAPTERS } from "../adapters/index.js";
+import { UserError } from "../core/output.js";
 import { applyAdapter, runAdapt } from "./adapt.js";
 import { runInit } from "./init.js";
 
@@ -79,6 +80,55 @@ test("windsurf adapter writes always_on trigger frontmatter", () => {
   applyAdapter(root, ADAPTERS.windsurf!, []);
   const content = readFileSync(join(root, ".windsurf/rules/agnosgram.md"), "utf8");
   assert.ok(content.startsWith("---\ntrigger: always_on\n---\n"));
+});
+
+test("cline: a legacy single-file .clinerules gets the managed block merged in, not crashed on", () => {
+  const userText = "# my old cline rules\n\nBe terse.\n";
+  writeFileSync(join(root, ".clinerules"), userText);
+
+  const res = applyAdapter(root, ADAPTERS.cline!, []);
+  assert.equal(res.action, "updated");
+  assert.equal(res.path, ".clinerules");
+  assert.ok(!existsSync(join(root, ".clinerules/agnosgram.md")));
+
+  const out = readFileSync(join(root, ".clinerules"), "utf8");
+  assert.ok(out.startsWith("# my old cline rules\n\nBe terse."));
+  assert.ok(out.includes(".agnosgram/MEMORY.md"));
+
+  // Re-running must stay idempotent against the legacy file, not the directory form.
+  const second = applyAdapter(root, ADAPTERS.cline!, []);
+  assert.equal(second.action, "unchanged");
+  assert.equal(second.path, ".clinerules");
+});
+
+test("cline: init auto-adapting a legacy single-file .clinerules does not crash", () => {
+  const cwd = process.cwd();
+  process.chdir(root);
+  try {
+    writeFileSync(join(root, ".clinerules"), "# old rules\n");
+    assert.doesNotThrow(() => runInit([]));
+    const out = readFileSync(join(root, ".clinerules"), "utf8");
+    assert.ok(out.includes(".agnosgram/MEMORY.md"));
+    assert.ok(!existsSync(join(root, ".clinerules/agnosgram.md")));
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
+test("cline: no legacy file present still gets the .clinerules/ directory form", () => {
+  const res = applyAdapter(root, ADAPTERS.cline!, []);
+  assert.equal(res.action, "created");
+  assert.equal(res.path, ".clinerules/agnosgram.md");
+});
+
+test("applyAdapter raises a UserError instead of crashing when a file occupies the adapter's directory", () => {
+  // Not the cline-specific fix path - a plain file sitting where an unrelated
+  // adapter needs a directory should still fail cleanly, not with a raw stack trace.
+  writeFileSync(join(root, ".windsurf"), "not a directory");
+  assert.throws(() => applyAdapter(root, ADAPTERS.windsurf!, []), (err) => {
+    assert.ok(err instanceof UserError);
+    return true;
+  });
 });
 
 test("adapt --claude-hooks installs hooks and a skill without requiring an adapter target", () => {
