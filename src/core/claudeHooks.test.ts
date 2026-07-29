@@ -91,6 +91,49 @@ test("throws a clear UserError when hooks.SessionStart is not an array", () => {
   assert.throws(() => installClaudeHooks(root), UserError);
 });
 
+test("hook commands quote ${CLAUDE_PROJECT_DIR} so a path with spaces still works", () => {
+  installClaudeHooks(root);
+  const settings = JSON.parse(readFileSync(join(root, ".claude/settings.json"), "utf8"));
+  const sessionCommand = settings.hooks.SessionStart[0].hooks[0].command;
+  const stopCommand = settings.hooks.Stop[0].hooks[0].command;
+  assert.equal(sessionCommand, 'node "${CLAUDE_PROJECT_DIR}/.claude/hooks/agnosgram-session-start.mjs"');
+  assert.equal(stopCommand, 'node "${CLAUDE_PROJECT_DIR}/.claude/hooks/agnosgram-stop-reminder.mjs"');
+});
+
+test("SessionStart matcher includes fork, so forked sessions get the pack context too", () => {
+  installClaudeHooks(root);
+  const settings = JSON.parse(readFileSync(join(root, ".claude/settings.json"), "utf8"));
+  const sources = settings.hooks.SessionStart[0].matcher.split("|");
+  assert.deepEqual(sources.sort(), ["clear", "compact", "fork", "resume", "startup"]);
+});
+
+test("refreshing our own SessionStart entry never touches an existing matcher we did not write", () => {
+  mkdirSync(join(root, ".claude"), { recursive: true });
+  writeFileSync(
+    join(root, ".claude/settings.json"),
+    JSON.stringify({
+      hooks: {
+        SessionStart: [
+          {
+            matcher: "startup",
+            hooks: [
+              { type: "command", command: "echo co-located-user-hook" },
+              { type: "command", command: 'node "${CLAUDE_PROJECT_DIR}/.claude/hooks/agnosgram-session-start.mjs"' },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+
+  installClaudeHooks(root);
+
+  const settings = JSON.parse(readFileSync(join(root, ".claude/settings.json"), "utf8"));
+  assert.equal(settings.hooks.SessionStart.length, 1);
+  assert.equal(settings.hooks.SessionStart[0].matcher, "startup");
+  assert.equal(settings.hooks.SessionStart[0].hooks[0].command, "echo co-located-user-hook");
+});
+
 test("hook scripts are written executable", () => {
   installClaudeHooks(root);
   const sessionStartPath = join(root, ".claude/hooks/agnosgram-session-start.mjs");

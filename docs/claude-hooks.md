@@ -24,7 +24,7 @@ Claude Code hooks + skill (SessionStart runs `agnosgram pack`, Stop reminds `agn
 
 | File | Role |
 |---|---|
-| `.claude/hooks/agnosgram-session-start.mjs` | Runs `agnosgram pack` and returns its output as `additionalContext` on `SessionStart` (matches `startup`, `resume`, `clear`, `compact`). |
+| `.claude/hooks/agnosgram-session-start.mjs` | Runs `agnosgram pack` and returns its output as `additionalContext` on `SessionStart` (matches `startup`, `resume`, `clear`, `compact`, `fork`). |
 | `.claude/hooks/agnosgram-stop-reminder.mjs` | On `Stop`, returns a plain reminder to run `agnosgram log` as `additionalContext` - **never blocks**, and backs off immediately if `stop_hook_active` is set, so it cannot loop. |
 | `.claude/settings.json` | Gets a merged-in `hooks.SessionStart` / `hooks.Stop` entry pointing at the two scripts above. |
 | `.claude/skills/agnosgram/SKILL.md` | Describes when and how to use each agnosgram command, for Claude Code's skill system. |

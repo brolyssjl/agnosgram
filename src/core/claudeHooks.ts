@@ -167,10 +167,12 @@ function upsertHookGroup(
 
   const groupIdx = groups.findIndex((g) => g.hooks.some((h) => isOwnHook(h, scriptName)));
   if (groupIdx >= 0) {
+    // Refresh only our own hook entry - leave the group's matcher alone, since it
+    // may have been hand-edited (or shared with a co-located user hook) since we
+    // last wrote it.
     const group = groups[groupIdx]!;
     const hookIdx = group.hooks.findIndex((h) => isOwnHook(h, scriptName));
     group.hooks[hookIdx] = hookObj;
-    if (matcher !== undefined) group.matcher = matcher;
     return groups;
   }
 
@@ -211,19 +213,19 @@ export function installClaudeHooks(root: string): ClaudeHooksResult {
 
   const sessionStartHook = {
     type: "command",
-    command: `node \${CLAUDE_PROJECT_DIR}/${HOOKS_REL_DIR}/${SESSION_START_SCRIPT}`,
+    command: `node "\${CLAUDE_PROJECT_DIR}/${HOOKS_REL_DIR}/${SESSION_START_SCRIPT}"`,
     timeout: 15,
   };
   const stopHook = {
     type: "command",
-    command: `node \${CLAUDE_PROJECT_DIR}/${HOOKS_REL_DIR}/${STOP_SCRIPT}`,
+    command: `node "\${CLAUDE_PROJECT_DIR}/${HOOKS_REL_DIR}/${STOP_SCRIPT}"`,
     timeout: 5,
   };
 
   hooks.SessionStart = upsertHookGroup(
     hooks.SessionStart,
     "SessionStart",
-    "startup|resume|clear|compact",
+    "startup|resume|clear|compact|fork",
     sessionStartHook,
     SESSION_START_SCRIPT,
   );
