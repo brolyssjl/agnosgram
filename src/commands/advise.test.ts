@@ -199,6 +199,17 @@ test("advise --validate resolves an absolute plan path", () => {
   assert.ok(!out.includes("coverage.plan_missing"));
 });
 
+test("advise's digest never includes meta/friction.md content", () => {
+  mkdirSync(join(root, ".agnosgram", "meta"), { recursive: true });
+  writeFileSync(
+    join(root, ".agnosgram", "meta", "friction.md"),
+    `# Friction\n\n---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: meta/friction.md\n---\nThis is tool friction, not host-project memory.\n`,
+  );
+  runAdvise(["plan.md"]);
+  assert.ok(!out.includes("FRI-001"));
+  assert.ok(!out.includes("tool friction, not host-project memory"));
+});
+
 test("advise digest table escapes pipes in body excerpts and only appends ... when truncated", () => {
   writeFileSync(
     join(root, ".agnosgram", "lessons", "pitfalls.md"),

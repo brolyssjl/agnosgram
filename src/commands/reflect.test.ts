@@ -104,6 +104,14 @@ test("reflect rejects a non-positive --months", () => {
   assert.throws(() => runReflect(["--months", "0"]), /--months must be a positive integer/);
 });
 
+test("reflect rejects a non-integer --months instead of silently truncating", () => {
+  assert.throws(() => runReflect(["--months", "2.5"]), /--months must be a positive integer/);
+});
+
+test("reflect rejects a --months with trailing junk instead of silently parsing a prefix", () => {
+  assert.throws(() => runReflect(["--months", "3abc"]), /--months must be a positive integer/);
+});
+
 test("reflect performs no writes to the repo (read-only)", () => {
   writeFriction(
     root,

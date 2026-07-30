@@ -41,7 +41,7 @@ function frictionDigest(records: StoreRecord[]): string {
   return `${header}\n${rows.join("\n")}`;
 }
 
-function buildPrompt(root: string, months: string[], friction: StoreRecord[]): string {
+function buildPrompt(months: string[], friction: StoreRecord[]): string {
   return `# Agnosgram reflect task
 
 You are reviewing how well Agnosgram itself is serving this project - not the
@@ -112,18 +112,19 @@ export function runReflect(argv: string[]): void {
 
   let monthCount = DEFAULT_MONTHS;
   if (values.months !== undefined) {
-    const parsed = Number.parseInt(values.months, 10);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
+    // Strict: reject anything parseInt would otherwise accept by truncating
+    // or stopping early (e.g. "2.5" -> 2, "3abc" -> 3).
+    if (!/^[1-9]\d*$/.test(values.months)) {
       throw new UserError(`--months must be a positive integer, got "${values.months}"`);
     }
-    monthCount = parsed;
+    monthCount = Number.parseInt(values.months, 10);
   }
 
   const allMonths = journalMonths(root);
   const months = allMonths.slice(Math.max(0, allMonths.length - monthCount));
   const friction = loadFrictionRecords(root);
 
-  const prompt = buildPrompt(root, months, friction);
+  const prompt = buildPrompt(months, friction);
 
   if (format !== "human") {
     printStructured(
