@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { loadConfig, type AgnosgramConfig } from "../core/config.js";
@@ -6,17 +6,8 @@ import { extractRecords, KNOWN_CONFIDENCE, KNOWN_TYPES, validateRecord } from ".
 import { info, printJson, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore, memoryDir } from "../core/paths.js";
 import { iterRawRecords } from "../core/records.js";
+import { journalMonths } from "../core/store.js";
 import { estimateTokens } from "../core/tokens.js";
-
-/** Journal months present in the store (`journal/YYYY-MM.md`), oldest first. */
-function journalMonths(root: string): string[] {
-  const dir = join(memoryDir(root), "journal");
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((f) => /^\d{4}-\d{2}\.md$/.test(f))
-    .map((f) => f.slice(0, 7))
-    .sort();
-}
 
 /** Every record id already in the store, so the distiller allocates fresh ones. */
 function existingIds(root: string, exclude?: string): string[] {

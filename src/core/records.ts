@@ -30,6 +30,14 @@ export interface StoreRecord {
 export function* iterRawRecords(root: string): Generator<{ file: StoreFile; raw: RawRecord }> {
   for (const file of readStore(root)) {
     if (!file.recordBearing) continue;
+    // meta/ is tool-friction feedback, not host-project memory - it must
+    // never surface through the shared record index that pack/show/advise
+    // and distill's id-collision check read from. `doctor` (and `reflect`,
+    // via core/meta.ts) validate/read meta/ separately, off readStore()
+    // directly. This exclusion is explicit here rather than relying on
+    // schema validation to reject it, so it holds regardless of how the
+    // default validator's type enum evolves.
+    if (file.storeRel === "meta" || file.storeRel.startsWith("meta/")) continue;
     for (const raw of extractRecords(file.text)) {
       yield { file, raw };
     }

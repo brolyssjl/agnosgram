@@ -36,6 +36,11 @@ function isRecordBearing(storeRel: string, base: string): boolean {
   const parts = storeRel.split("/");
   if (parts[0] === "lessons" && storeRel.endsWith(".md")) return true;
   if (parts[0] === "decisions" && DECISION_FILE_RE.test(base)) return true;
+  // meta/ (tool-friction feedback, see core/meta.ts) validates against its
+  // own type enum, not the frozen lessons/decisions one - doctor picks the
+  // right validator by path. `records.ts` explicitly excludes meta/ from the
+  // shared retrieval index regardless of this flag.
+  if (parts[0] === "meta" && storeRel.endsWith(".md")) return true;
   return false;
 }
 
@@ -71,4 +76,14 @@ export function pathExists(path: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Journal months present in the store (`journal/YYYY-MM.md`), oldest first. */
+export function journalMonths(root: string): string[] {
+  const dir = join(memoryDir(root), "journal");
+  if (!pathExists(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /^\d{4}-\d{2}\.md$/.test(f))
+    .map((f) => f.slice(0, 7))
+    .sort();
 }
