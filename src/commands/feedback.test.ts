@@ -3,7 +3,6 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { loadConfig, saveConfig } from "../core/config.js";
 import { runFeedback } from "./feedback.js";
 import { runInit } from "./init.js";
 
@@ -40,19 +39,6 @@ test("feedback creates meta/friction.md on first use, not before", () => {
   assert.ok(text.includes("id: FRI-001"));
   assert.ok(text.includes("type: friction"));
   assert.ok(text.includes("doctor's error message was confusing"));
-});
-
-test("feedback registers a budget for meta/friction.md on first use only", () => {
-  runFeedback(["first friction"]);
-  let config = loadConfig(root);
-  assert.equal(config.budgets["meta/friction.md"], 1500);
-
-  config.budgets["meta/friction.md"] = 42;
-  saveConfig(root, config);
-
-  runFeedback(["second friction"]);
-  config = loadConfig(root);
-  assert.equal(config.budgets["meta/friction.md"], 42, "must not clobber an existing budget override");
 });
 
 test("feedback allocates sequential FRI- ids", () => {

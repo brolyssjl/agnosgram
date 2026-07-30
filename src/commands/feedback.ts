@@ -12,17 +12,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { loadConfig, saveConfig } from "../core/config.js";
+import { loadConfig } from "../core/config.js";
 import { KNOWN_CONFIDENCE } from "../core/frontmatter.js";
 import { FRICTION_FILE, FRICTION_TYPE, loadFrictionRecords } from "../core/meta.js";
 import { info, printStructured, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore, memoryDir } from "../core/paths.js";
 import { resolveFormat } from "../core/serialize.js";
 import { isoDate } from "../core/templates.js";
-
-/** Per-file token budget applied to meta/friction.md once it exists (additive
- * config key - the same "unknown keys are ignored" contract as pack_budget). */
-const FRICTION_BUDGET = 1500;
 
 function readStdin(): string {
   try {
@@ -41,21 +37,17 @@ docs/feedback.md._
 `;
 }
 
-/** Create meta/friction.md on first use and register its token budget. Both
- * steps are additive-only: a store that never calls `feedback` never gets
- * either, keeping `init`'s default output unchanged (per the M5 brief). */
+/** Create meta/friction.md on first use. `feedback` writes only under
+ * `.agnosgram/meta/` - never config.yml or anything else - so a project that
+ * wants to cap it with a budget adds `budgets: {"meta/friction.md": N}` to
+ * config.yml by hand; `doctor` already enforces any budget entry that names
+ * an existing file, meta/ included (see core/meta.ts, doctor.ts). */
 function ensureMetaStore(root: string): string {
   const dir = join(memoryDir(root), "meta");
   const file = join(dir, "friction.md");
   if (!existsSync(file)) {
     mkdirSync(dir, { recursive: true });
     writeFileSync(file, frictionMd());
-
-    const config = loadConfig(root);
-    if (config.budgets[FRICTION_FILE] === undefined) {
-      config.budgets[FRICTION_FILE] = FRICTION_BUDGET;
-      saveConfig(root, config);
-    }
   }
   return file;
 }
