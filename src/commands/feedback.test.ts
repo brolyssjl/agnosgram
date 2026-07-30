@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { runFeedback } from "./feedback.js";
 import { runInit } from "./init.js";
+
+/** `--stdin` reads from real fd 0, so it can only be exercised by spawning
+ * the built CLI with piped input - not by calling `runFeedback` in-process. */
+const CLI_PATH = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 
 let root: string;
 let cwd: string;
@@ -67,8 +73,25 @@ test("feedback rejects an unknown --confidence", () => {
   assert.throws(() => runFeedback(["x", "--confidence", "bogus"]), /--confidence must be one of/);
 });
 
+test("feedback rejects a --scope tag that would break the YAML flow sequence (bracket)", () => {
+  assert.throws(() => runFeedback(["x", "--scope", "cli]x"]), /--scope tag "cli\]x" must contain only/);
+});
+
+test("feedback rejects a --scope tag containing a colon-space", () => {
+  assert.throws(() => runFeedback(["x", "--scope", "a: b"]), /--scope tag "a: b" must contain only/);
+});
+
 test("feedback with no text throws a usage error", () => {
   assert.throws(() => runFeedback([]), /Usage: agnosgram feedback/);
+});
+
+test("feedback --stdin reads the entry text from piped input", () => {
+  execFileSync(process.execPath, [CLI_PATH, "feedback", "--stdin"], {
+    cwd: root,
+    input: "captured over stdin, longer than a single positional arg\n",
+  });
+  const text = readFileSync(join(root, ".agnosgram", "meta", "friction.md"), "utf8");
+  assert.ok(text.includes("captured over stdin, longer than a single positional arg"));
 });
 
 test("feedback --json prints a structured envelope and no gh command by default", () => {
@@ -79,16 +102,18 @@ test("feedback --json prints a structured envelope and no gh command by default"
   assert.equal(parsed.share, null);
 });
 
-test("feedback --share prints a ready-to-run gh issue create command but never runs it", () => {
+test("feedback --share prints a ready-to-run gh issue create command targeting the real repo, but never runs it", () => {
   runFeedback(["share me", "--share"]);
   assert.ok(out.includes("gh issue create"));
+  assert.ok(out.includes("--repo brolyssjl/agnosgram"), "must pin --repo, or it files on whatever repo the CLI runs in");
   assert.ok(out.includes("never executes it") || out.includes("run it yourself"));
 });
 
-test("feedback --share --json includes the command as a string field", () => {
+test("feedback --share --json includes the command, targeting the real repo, as a string field", () => {
   runFeedback(["share me", "--share", "--json"]);
   const parsed = JSON.parse(out);
   assert.ok(typeof parsed.share === "string" && parsed.share.startsWith("gh issue create"));
+  assert.ok(parsed.share.includes("--repo brolyssjl/agnosgram"));
 });
 
 test("feedback writes only under .agnosgram/meta/, touching no other file", () => {

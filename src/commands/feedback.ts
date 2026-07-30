@@ -20,6 +20,17 @@ import { findProjectRoot, hasStore, memoryDir } from "../core/paths.js";
 import { resolveFormat } from "../core/serialize.js";
 import { isoDate } from "../core/templates.js";
 
+/** The real remote this repo lives at - not the `agnosgram/agnosgram` org
+ * slug used in docs URLs, which is currently a dead link. `--share` must
+ * name this exact repo, or the printed command would file the issue on
+ * whatever host-project repo the CLI happens to be run from instead. */
+const AGNOSGRAM_REPO = "brolyssjl/agnosgram";
+
+/** Scope tags are written into YAML frontmatter as an inline flow sequence
+ * (`[a, b]`); restricting them to a safe charset keeps that output canonical
+ * instead of relying on parser leniency for anything containing `]`, `:`, etc. */
+const SCOPE_TAG_PATTERN = /^[A-Za-z0-9._-]+$/;
+
 function readStdin(): string {
   try {
     return readFileSync(0, "utf8");
@@ -67,11 +78,15 @@ function shellQuote(s: string): string {
 }
 
 /** A ready-to-run (never executed by Agnosgram) `gh issue create` command,
- * printed only behind the explicit, default-off `--share` flag. */
+ * printed only behind the explicit, default-off `--share` flag. Always
+ * targets the real agnosgram repo via `--repo` - `agnosgram` runs in the
+ * host project's cwd, so without it the issue would be filed on whatever
+ * unrelated repo the command happens to run from. No `--label`: an
+ * unpinned label would fail on a repo that has not defined it. */
 function shareCommand(id: string, text: string, scope: string[]): string {
   const title = text.length > 72 ? `${text.slice(0, 69)}...` : text;
   const body = [`Captured via \`agnosgram feedback\` (${id}).`, "", text, `\nScope: ${scope.join(", ")}`].join("\n");
-  return `gh issue create --title ${shellQuote(title)} --body ${shellQuote(body)} --label feedback`;
+  return `gh issue create --repo ${AGNOSGRAM_REPO} --title ${shellQuote(title)} --body ${shellQuote(body)}`;
 }
 
 export function runFeedback(argv: string[]): void {
@@ -115,6 +130,13 @@ export function runFeedback(argv: string[]): void {
     .filter(Boolean);
   if (scope.length === 0) {
     throw new UserError("--scope must not be empty when given.");
+  }
+  for (const tag of scope) {
+    if (!SCOPE_TAG_PATTERN.test(tag)) {
+      throw new UserError(
+        `--scope tag "${tag}" must contain only letters, digits, dot, dash, or underscore.`,
+      );
+    }
   }
 
   const file = ensureMetaStore(root);
