@@ -5,6 +5,7 @@ import { daysBetween, todayIso } from "../core/dates.js";
 import { extractRecords, validateRecord, type Frontmatter } from "../core/frontmatter.js";
 import { parseFreshnessTable } from "../core/freshness.js";
 import { INJECTION_PATTERNS, scanPatterns, SECRET_PATTERNS } from "../core/lint.js";
+import { KNOWN_META_TYPES } from "../core/meta.js";
 import { info, printStructured, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore, memoryDir } from "../core/paths.js";
 import { resolveFormat } from "../core/serialize.js";
@@ -92,11 +93,15 @@ export function collectFindings(root: string, config: AgnosgramConfig): Finding[
   const known: KnownRecord[] = [];
   const idLocations = new Map<string, Array<{ file: string; line: number }>>();
 
-  // 1. Schema validation + record inventory.
+  // 1. Schema validation + record inventory. meta/ (tool-friction, see
+  // core/meta.ts) validates against its own type enum - an additive
+  // namespace, not part of the frozen lessons/decisions contract - but
+  // shares every check below (duplicate ids, staleness, budgets, ...).
   for (const file of store) {
     if (!file.recordBearing) continue;
+    const isMeta = file.storeRel.startsWith("meta/");
     for (const raw of extractRecords(file.text)) {
-      const { frontmatter, issues } = validateRecord(raw);
+      const { frontmatter, issues } = validateRecord(raw, isMeta ? KNOWN_META_TYPES : undefined);
       for (const issue of issues) {
         findings.push({
           level: issue.level,
