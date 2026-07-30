@@ -2,18 +2,20 @@
 
 _Small and volatile. Overwrite freely; history lives in the journal._
 
-- **Focus:** Milestone 3 (Retrieval) merged to `main` via PR #3. Milestone 4 (Reach &
-  ergonomics) complete on branch `milestone-4-reach`: Windsurf/Cline/Roo adapters,
-  Codex/OpenCode routed to the `AGENTS.md` adapter, path-aware SDD coexistence
-  hints, opt-in Claude Code hooks + skill (`adapt --claude-hooks`), `install.sh` +
-  single-file binary (bun / Node SEA), and docs. Version bumped to `0.9.0`.
-- **In flight:** branch `milestone-4-reach` pushed to origin. First coordinator
-  review found 10 correctness bugs + 6 cleanup items + an em-dash sweep, all now
-  fixed in small commits with regression tests (gates green from a clean `npm ci`).
-  PR still not opened - awaiting coordinator re-review.
-- **Next:** coordinator re-reviews; open the Milestone 4 PR once approved; then the
-  `1.0.0` real-world soak (dogfood `0.9.0` on the legacy project, then a docs site
-  + case study).
+- **Focus:** Milestone 4 (Reach & ergonomics) merged to `main` and tagged
+  `v0.9.0`. Milestone 5 (Reflexive loop) complete on branch
+  `milestone-5-reflexive`: `feedback` (tool-friction capture into a new,
+  additive `.agnosgram/meta/` namespace, strictly separate from host-project
+  memory), `reflect` (read-only prompt turning friction + recent journal
+  months into improvement proposals and candidate milestones), an opt-in
+  community feedback inbox (`.github/ISSUE_TEMPLATE/feedback.yml`,
+  docs/feedback.md), and the human-in-the-loop guarantee (DEC-0003). Version
+  bumped to `0.10.0`.
+- **In flight:** branch `milestone-5-reflexive` implemented locally, not yet
+  pushed. Coordinator review pending; PR not opened.
+- **Next:** coordinator review of `milestone-5-reflexive`; open the Milestone
+  5 PR once approved; then the `1.0.0` real-world soak (dogfood `0.10.0` on
+  the legacy project, then a docs site + case study).
 - **Blocked on:** nothing. (npm name reservation + first publish still deferred by owner.)
 
-_Last updated: 2026-07-29_
+_Last updated: 2026-07-30_
