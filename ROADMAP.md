@@ -72,9 +72,9 @@ the release to adopt on the legacy project._
 Moved out of Milestone 4 rather than blocking `0.9.0` on them: both need real-world
 usage on a project that hasn't happened yet.
 - [ ] Docs site + real-project case study (the legacy project)
-- [ ] `1.0.0`: format + core CLI declared stable after real-world soak (dogfood `0.9.0` on the legacy project first)
+- [ ] `1.0.0`: format + core CLI declared stable after real-world soak (dogfood `0.10.0` on the legacy project first)
 
-## Milestone 5 - Reflexive loop · `1.x+` ✅ done
+## Milestone 5 - Reflexive loop · `0.10.0` ✅ done
 _Agnosgram uses Agnosgram to evolve Agnosgram. Constraints held: the CLI never calls an
 LLM, sends no telemetry, and the human decides._
 - [x] `feedback`: capture tool-friction to a separate `meta/` namespace (never host-project memory)

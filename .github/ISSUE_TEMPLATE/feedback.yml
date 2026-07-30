@@ -13,7 +13,7 @@ body:
         Prefer capturing friction locally first with `agnosgram feedback
         "<text>"` (writes to `.agnosgram/meta/friction.md`, never sent
         anywhere). Opening this issue is entirely optional and manual - see
-        [docs/feedback.md](https://github.com/agnosgram/agnosgram/blob/main/docs/feedback.md).
+        [docs/feedback.md](https://github.com/brolyssjl/agnosgram/blob/main/docs/feedback.md).
   - type: textarea
     id: friction
     attributes:

@@ -51,18 +51,19 @@ captured directly, not distilled from a journal month.
 
 ## The opt-in community feedback inbox
 
-Three ways friction can travel outward, all opt-in and all requiring a human
-to actually do it - `agnosgram` never calls a network API and never runs `gh`
-on its own:
+`agnosgram feedback` alone is purely local: it writes to
+`.agnosgram/meta/friction.md` and nothing else, no network call involved.
+Sending that friction outward is a separate, opt-in step - always requiring a
+human to actually do it, since `agnosgram` never calls a network API and
+never runs `gh` on its own. Three ways to do that:
 
-1. **Local capture.** `agnosgram feedback` - the default, no network involved.
-2. **GitHub Discussions.** For open-ended conversation about the tool -
+1. **GitHub Discussions.** For open-ended conversation about the tool -
    proposals, questions, "does anyone else hit this." A human starts the
    thread; nothing here automates it.
-3. **`feedback/` PRs.** If you want to share distilled friction upstream,
+2. **`feedback/` PRs.** If you want to share distilled friction upstream,
    open a PR adding a Markdown file under a `feedback/` directory summarizing
    what you found - reviewed like any other contribution.
-4. **Agent-filed issues, with explicit consent only.** `agnosgram feedback
+3. **Agent-filed issues, with explicit consent only.** `agnosgram feedback
    --share` prints a ready-to-run `gh issue create ...` command to stdout. It
    is never executed by Agnosgram; a human (or an agent a human has
    explicitly asked to do this) runs it themselves. See
