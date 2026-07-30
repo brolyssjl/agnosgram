@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
@@ -118,6 +118,17 @@ test("pack tokens stay within budget for a normal case, accounting for headings/
   const parsed = JSON.parse(out);
   assert.ok(parsed.tokens <= parsed.budget, `expected tokens (${parsed.tokens}) <= budget (${parsed.budget})`);
   assert.ok(parsed.omitted.length > 0, "expected this store to overflow a 200-token budget");
+});
+
+test("pack never surfaces meta/friction.md content, even when it exists", () => {
+  mkdirSync(join(root, ".agnosgram", "meta"), { recursive: true });
+  writeFileSync(
+    join(root, ".agnosgram", "meta", "friction.md"),
+    `# Friction\n\n${rec("FRI-001", "friction", "cli", "This is tool friction, not host-project memory.")}\n`,
+  );
+  runPack(["--json"]);
+  assert.ok(!out.includes("FRI-001"));
+  assert.ok(!out.includes("tool friction, not host-project memory"));
 });
 
 test("pack's omitted footer is capped and summarizes the rest instead of listing every record", () => {
