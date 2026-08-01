@@ -136,8 +136,17 @@ function asStringList(value: YamlValue | undefined): string[] | undefined {
   return undefined;
 }
 
-/** Validate one raw record's frontmatter against the schema. */
-export function validateRecord(raw: RawRecord): ValidatedRecord {
+/**
+ * Validate one raw record's frontmatter against the schema. `allowedTypes`
+ * defaults to the frozen lessons/decisions enum (`KNOWN_TYPES`); passing a
+ * different list lets other additive namespaces (e.g. `meta/`) reuse this
+ * same field-by-field validation against their own type enum, without
+ * touching the frozen lessons/decisions contract itself.
+ */
+export function validateRecord(
+  raw: RawRecord,
+  allowedTypes: readonly string[] = KNOWN_TYPES,
+): ValidatedRecord {
   const issues: RecordIssue[] = [];
   const err = (code: string, message: string) =>
     issues.push({ level: "error", code, message, line: raw.line });
@@ -160,8 +169,8 @@ export function validateRecord(raw: RawRecord): ValidatedRecord {
 
   const type = typeof d.type === "string" ? d.type : undefined;
   if (type === undefined) err("type.missing", "missing required field `type`");
-  else if (!(KNOWN_TYPES as readonly string[]).includes(type)) {
-    err("type.unknown", `type "${type}" is not one of ${KNOWN_TYPES.join(", ")}`);
+  else if (!allowedTypes.includes(type)) {
+    err("type.unknown", `type "${type}" is not one of ${allowedTypes.join(", ")}`);
   }
 
   const scope = asStringList(d.scope);

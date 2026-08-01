@@ -10,10 +10,11 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
-> **Status:** `0.9.0`. Milestones 1-4 are done and dogfooded on this repo: capture
+> **Status:** `0.10.0`. Milestones 1-5 are done and dogfooded on this repo: capture
 > (`init` / `adapt` / `log`), the self-maintaining half (`doctor` / `distill` /
-> `bootstrap`), retrieval (`pack` / `show` / `advise`), and reach (every mainstream
-> adapter, opt-in Claude Code hooks, `install.sh` + binaries, SDD coexistence).
+> `bootstrap`), retrieval (`pack` / `show` / `advise`), reach (every mainstream
+> adapter, opt-in Claude Code hooks, `install.sh` + binaries, SDD coexistence), and
+> the reflexive loop (`feedback` / `reflect`, a strictly separate `meta/` namespace).
 > **The on-disk `.agnosgram/` format is frozen** at format version 1 - safe to adopt
 > on a real, even legacy, project. `1.0.0` follows a real-world soak period; see
 > [ROADMAP.md](ROADMAP.md). See the [schema reference](docs/schema-reference.md).
@@ -50,6 +51,10 @@ agnosgram log --did "..." --learned "..." --next "..."   # append a journal entr
 └── journal/               # append-only session log, one file per month
 ```
 
+`meta/` (tool friction, not host-project memory) is opt-in: `init` never
+scaffolds it, `agnosgram feedback` creates it on first use. See
+[docs/feedback.md](docs/feedback.md).
+
 Adapters inject only a ~10-line managed pointer block (between
 `<!-- agnosgram:start -->` / `<!-- agnosgram:end -->` markers) that tells the agent
 to read `.agnosgram/MEMORY.md` first. The block is idempotent - re-running `adapt`
@@ -85,13 +90,19 @@ signals and per-tool notes.
 | `agnosgram show <topic>` | Print records matching an id, scope tag, or type - for agents with weak file navigation. `--type`, `--format json\|toon`. See [guide](docs/show.md). |
 | `agnosgram pack` | Token-budgeted context bundle: status + lessons (+ decisions when `--scope`d). Human output is the Markdown bundle itself. `--scope`, `--budget`, `--format json\|toon`. See [guide](docs/pack.md). |
 | `agnosgram advise <plan-path>` | Emit a plan-vs-memory contradiction review prompt; `--validate <report>` mechanically checks the agent's JSON report. `--strict`, `--format json\|toon`. See [guide](docs/advise.md). |
+| `agnosgram feedback "<text>"` | Capture tool friction into `.agnosgram/meta/` - never host-project memory, never read by `pack`/`show`/`advise`. `--scope`, `--confidence`, `--stdin`, `--share` (prints a ready-to-run `gh issue create` command; never runs it). See [guide](docs/feedback.md). |
+| `agnosgram reflect` | Emit a prompt turning tool friction + recent journal months into improvement proposals and candidate roadmap milestones. Read-only; `ROADMAP.md` stays owner-edited. `--months`, `--format json\|toon`. See [guide](docs/reflect.md). |
 
-Judgment steps (`distill`, `bootstrap`, `advise`) **emit a prompt** for your agent
-and then validate the result mechanically - the CLI itself never calls an LLM.
+Judgment steps (`distill`, `bootstrap`, `advise`, `reflect`) **emit a prompt** for your
+agent and then validate the result mechanically (where there is a result to check) -
+the CLI itself never calls an LLM.
 
 Milestone 4 added the remaining adapters (Windsurf, Cline/Roo, OpenCode, Codex), a
 Claude Code skill with session hooks (see [docs/claude-hooks.md](docs/claude-hooks.md)),
-and `install.sh` + prebuilt binaries (see [docs/install.md](docs/install.md)).
+and `install.sh` + prebuilt binaries (see [docs/install.md](docs/install.md)). Milestone 5
+added the reflexive loop: `feedback` captures tool friction into `.agnosgram/meta/`
+(see [docs/feedback.md](docs/feedback.md)), and `reflect` turns it into proposals
+(see [docs/reflect.md](docs/reflect.md)) - the tool proposes, a human decides.
 
 ## Anti-rot
 
@@ -102,18 +113,22 @@ format. Full field-by-field contract: **[docs/schema-reference.md](docs/schema-r
 
 ## Status & roadmap
 
-Milestones 1-4 are done and dogfooded: capture (`init` / `adapt` / `log`), the
+Milestones 1-5 are done and dogfooded: capture (`init` / `adapt` / `log`), the
 self-maintaining half (`doctor` / `distill` / `bootstrap`), retrieval (`pack` /
-`show` / `advise`), and reach (adapters, Claude Code hooks, install.sh + binaries,
-SDD coexistence), with the on-disk format frozen at version 1. Full plan with
-progress checkboxes and release checkpoints: **[ROADMAP.md](ROADMAP.md)**.
+`show` / `advise`), reach (adapters, Claude Code hooks, install.sh + binaries,
+SDD coexistence), and the reflexive loop (`feedback` / `reflect`), with the
+on-disk format frozen at version 1. Full plan with progress checkboxes and
+release checkpoints: **[ROADMAP.md](ROADMAP.md)**.
 
 **`0.5.0`** was the first release safe to adopt on a real project: frontmatter
 schema validation, `doctor`, `distill`, and a frozen on-disk format.
 **`0.8.0`** added the killer feature: `advise`, the contradiction-catcher, plus
-`pack` and `show`. **`0.9.0`** (this release) is Milestone 4: every mainstream
-adapter, opt-in Claude Code hooks, `install.sh` + prebuilt binaries, and deeper
-SDD coexistence. `1.0.0` follows a real-world soak on a real project.
+`pack` and `show`. **`0.9.0`** was Milestone 4: every mainstream adapter,
+opt-in Claude Code hooks, `install.sh` + prebuilt binaries, and deeper SDD
+coexistence. **`0.10.0`** (this release) is Milestone 5, the reflexive loop:
+`feedback` captures tool friction into a separate, additive `meta/` namespace;
+`reflect` turns it into proposals - the tool proposes, a human decides.
+`1.0.0` follows a real-world soak on a real project.
 
 ## How it compares
 

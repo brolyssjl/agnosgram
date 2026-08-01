@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
@@ -109,6 +109,17 @@ test("--format json on no match prints an empty JSON array to stdout and still e
   assert.deepEqual(parsed, []);
   // Structured mode never writes the human hints to stderr.
   assert.equal(errOut, "");
+});
+
+test("show never surfaces a meta/ friction entry, even by exact id or its scope tag", () => {
+  mkdirSync(join(root, ".agnosgram", "meta"), { recursive: true });
+  writeFileSync(
+    join(root, ".agnosgram", "meta", "friction.md"),
+    `# Friction\n\n---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: meta/friction.md\n---\nTool friction, not host-project memory.\n`,
+  );
+  runShow(["FRI-001", "--format", "json"]);
+  assert.deepEqual(JSON.parse(out), []);
+  assert.equal(process.exitCode, 1);
 });
 
 test("--format toon on no match prints an empty TOON array to stdout and still exits 1", () => {

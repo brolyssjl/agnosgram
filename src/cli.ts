@@ -5,13 +5,15 @@ import { runAdvise } from "./commands/advise.js";
 import { runBootstrap } from "./commands/bootstrap.js";
 import { runDistill } from "./commands/distill.js";
 import { runDoctor } from "./commands/doctor.js";
+import { runFeedback } from "./commands/feedback.js";
 import { runInit } from "./commands/init.js";
 import { runLog } from "./commands/log.js";
 import { runPack } from "./commands/pack.js";
+import { runReflect } from "./commands/reflect.js";
 import { runShow } from "./commands/show.js";
 import { UserError, warn } from "./core/output.js";
 
-const VERSION = "0.9.0";
+const VERSION = "0.10.0";
 
 const HELP = `agnosgram - agent-agnostic, per-project memory (plain Markdown in your repo)
 
@@ -28,6 +30,9 @@ Usage:
   agnosgram pack [--scope <tag>] [--budget <n>] [--format json|toon]
   agnosgram advise <plan-path> [--out <file>] [--format json|toon]
   agnosgram advise --validate <report-file> [--strict] [--format json|toon]
+  agnosgram feedback "<text>" [--scope <tag,...>] [--confidence low|medium|high]
+                    [--stdin] [--share] [--format json|toon]
+  agnosgram reflect [--months <n>] [--format json|toon]
 
 Commands:
   init      Scaffold .agnosgram/, detect SDD frameworks + agents, write adapters.
@@ -40,6 +45,9 @@ Commands:
   show      Print records matching a topic (id, scope tag, or type).
   pack      Token-budgeted context bundle: status + lessons (+ decisions if scoped).
   advise    Emit a plan-vs-memory contradiction review prompt; --validate a report.
+  feedback  Capture tool friction into .agnosgram/meta/ (never host-project memory).
+            --share prints a ready-to-run "gh issue create" command; never runs it.
+  reflect   Emit a prompt turning friction + recent journal months into proposals.
 
 Global:
   -h, --help       Show this help.
@@ -90,6 +98,12 @@ function main(): void {
         break;
       case "advise":
         runAdvise(rest);
+        break;
+      case "feedback":
+        runFeedback(rest);
+        break;
+      case "reflect":
+        runReflect(rest);
         break;
       default:
         warn(`Unknown command: ${command}\n`);

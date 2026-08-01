@@ -104,6 +104,54 @@ The whole-file counterpart to per-record `last_verified`. Rows look like:
 
 `doctor` flags any row whose date is older than `staleness_days`.
 
+## The `meta/friction` extension
+
+`.agnosgram/meta/` is an **additive, optional** extension to format version 1
+(Milestone 5): tool-friction feedback (see [docs/feedback.md](feedback.md)),
+kept strictly separate from the host-project memory described above. A store
+without `meta/` remains fully valid, and adding it never changes what any
+existing file means - the same compatibility guarantee as the rest of this
+page.
+
+```
+.agnosgram/meta/friction.md   # many friction records; created by `feedback` on first use
+```
+
+`init` never scaffolds `meta/`; `agnosgram feedback "<text>"` creates it the
+first time it is run. A friction record uses the exact same frontmatter
+fields as a lesson or decision, with its own `type`:
+
+```
+---
+id: FRI-003
+type: friction
+scope: [doctor, docs]
+confidence: medium
+created: 2026-07-30
+last_verified: 2026-07-30
+source: meta/friction.md
+---
+doctor's source.missing warning didn't mention archive/ is also checked.
+```
+
+| Field | Rule |
+|---|---|
+| `id` | `^FRI-\d{2,}$` in practice (the general `^[A-Z]{2,}-\d{2,}$` pattern), unique across the whole store |
+| `type` | `friction` (the only value today) |
+| `source` | conventionally `meta/friction.md` itself - friction is captured directly, not distilled from a journal month |
+
+Everything else (`scope`, `confidence`, `created`, `last_verified`,
+`supersedes`) follows the same rules as lessons/decisions. `doctor` validates
+`meta/friction.md` the same way it validates lessons/decisions - schema,
+duplicate ids, staleness, budgets - just against the friction type enum
+instead of `pitfall | convention | decision`.
+
+**`meta/` is never surfaced by retrieval.** `pack`, `show`, and `advise`'s
+digest all read from the same shared record index, which explicitly excludes
+`meta/` - it answers "what does this project need to remember," not "what is
+annoying about the tool." `meta/friction.md` feeds `agnosgram reflect`
+instead (see [docs/reflect.md](reflect.md)).
+
 ## `advise` reports are not store format
 
 `agnosgram advise --validate` reads and checks a JSON report (`agnosgram_advise`,

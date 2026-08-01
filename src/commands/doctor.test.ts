@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { loadConfig } from "../core/config.js";
+import { loadConfig, saveConfig } from "../core/config.js";
 import { collectFindings, runDoctorChecks } from "./doctor.js";
 import { runInit } from "./init.js";
 
@@ -114,6 +114,53 @@ test("flags a line-anchored source and a missing source path", () => {
   const c = codes();
   assert.ok(c.includes("source.anchor"));
   assert.ok(!c.includes("source.missing"), JSON.stringify(c));
+});
+
+function writeFriction(body: string): void {
+  mkdirSync(join(root, ".agnosgram", "meta"), { recursive: true });
+  writeFileSync(join(root, ".agnosgram", "meta", "friction.md"), `# Friction\n\n${body}`);
+}
+
+test("validates a well-formed friction entry under meta/ with no findings", () => {
+  writeFriction(
+    `---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: medium\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: meta/friction.md\n---\nThe doctor error message was confusing.\n`,
+  );
+  const report = runDoctorChecks(root);
+  assert.equal(report.errors, 0, JSON.stringify(report.findings, null, 2));
+});
+
+test("flags a friction entry using a lessons/decisions type as unknown", () => {
+  writeFriction(
+    `---\nid: FRI-001\ntype: pitfall\nscope: [cli]\nconfidence: medium\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: meta/friction.md\n---\nWrong type for this namespace.\n`,
+  );
+  assert.ok(codes().includes("schema.type.unknown"));
+});
+
+test("flags a stale friction entry the same way as any other record", () => {
+  writeFriction(
+    `---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: medium\ncreated: 2000-01-01\nlast_verified: 2000-01-01\nsource: meta/friction.md\n---\nVery old friction.\n`,
+  );
+  assert.ok(codes().includes("record.stale"));
+});
+
+test("flags a duplicate id shared between meta/ and lessons/", () => {
+  writePitfalls(
+    `---\nid: FRI-001\ntype: pitfall\nscope: [x]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\ncollides on purpose\n`,
+  );
+  writeFriction(
+    `---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: medium\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: meta/friction.md\n---\ncollides on purpose\n`,
+  );
+  assert.ok(codes().includes("id.duplicate"));
+});
+
+test("enforces a configured budget on meta/friction.md", () => {
+  const config = loadConfig(root);
+  config.budgets["meta/friction.md"] = 20;
+  saveConfig(root, config);
+  writeFriction(
+    `---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: medium\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: meta/friction.md\n---\n${"word ".repeat(60)}\n`,
+  );
+  assert.ok(codes().includes("budget.over"));
 });
 
 test("rejects a store declaring a newer format version", () => {

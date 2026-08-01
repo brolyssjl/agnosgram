@@ -62,6 +62,11 @@ test("init --adapt none writes no adapters", () => {
   assert.ok(!agents.includes(".agnosgram/MEMORY.md"));
 });
 
+test("init does not scaffold meta/ - it is opt-in via `feedback` on first use", () => {
+  runInit(["--adapt", "none"]);
+  assert.ok(!existsSync(join(root, ".agnosgram", "meta")));
+});
+
 test("init records SDD detection into config-driven hints", () => {
   mkdirSync(join(root, "openspec"), { recursive: true });
   writeFileSync(join(root, "AGENTS.md"), "");
