@@ -3,23 +3,17 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { runInit } from "./init.js";
-import { runPack } from "./pack.js";
+import { runCli } from "../conformance/harness.js";
 
 let root: string;
-let cwd: string;
-let out: string;
-let origWrite: typeof process.stdout.write;
 
 function rec(id: string, type: string, scope: string, extra = ""): string {
   return `---\nid: ${id}\ntype: ${type}\nscope: [${scope}]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\n${extra || `Body of ${id}.`}\n`;
 }
 
 beforeEach(() => {
-  cwd = process.cwd();
   root = mkdtempSync(join(tmpdir(), "agnos-pack-"));
-  process.chdir(root);
-  runInit(["--adapt", "none"]);
+  assert.equal(runCli(["init", "--adapt", "none"], { cwd: root }).status, 0);
   writeFileSync(
     join(root, ".agnosgram", "lessons", "pitfalls.md"),
     `# Pitfalls\n\n${rec("LES-001", "pitfall", "core")}\n${rec("LES-002", "pitfall", "backend")}\n`,
@@ -32,45 +26,40 @@ beforeEach(() => {
     join(root, ".agnosgram", "decisions", "0003-example.md"),
     rec("DEC-0003", "decision", "core"),
   );
-  out = "";
-  origWrite = process.stdout.write.bind(process.stdout);
-  process.stdout.write = ((chunk: string | Uint8Array) => {
-    out += chunk.toString();
-    return true;
-  }) as typeof process.stdout.write;
 });
 afterEach(() => {
-  process.stdout.write = origWrite;
-  process.chdir(cwd);
   rmSync(root, { recursive: true, force: true });
-  process.exitCode = 0;
 });
 
 test("pack includes status.md verbatim and lessons, but not decisions, when unscoped", () => {
-  runPack([]);
+  const res = runCli(["pack"], { cwd: root });
+  assert.equal(res.status, 0);
   const status = readFileSync(join(root, ".agnosgram", "state", "status.md"), "utf8").trim();
-  assert.ok(out.includes(status));
-  assert.ok(out.includes("LES-001"));
-  assert.ok(out.includes("CON-001"));
-  assert.ok(!out.includes("DEC-0003"));
+  assert.ok(res.stdout.includes(status));
+  assert.ok(res.stdout.includes("LES-001"));
+  assert.ok(res.stdout.includes("CON-001"));
+  assert.ok(!res.stdout.includes("DEC-0003"));
 });
 
 test("pack --scope includes matching decisions and filters lessons by scope", () => {
-  runPack(["--scope", "core"]);
-  assert.ok(out.includes("LES-001"));
-  assert.ok(!out.includes("LES-002")); // scope backend, excluded
-  assert.ok(out.includes("CON-001"));
-  assert.ok(out.includes("DEC-0003"));
+  const res = runCli(["pack", "--scope", "core"], { cwd: root });
+  assert.equal(res.status, 0);
+  assert.ok(res.stdout.includes("LES-001"));
+  assert.ok(!res.stdout.includes("LES-002")); // scope backend, excluded
+  assert.ok(res.stdout.includes("CON-001"));
+  assert.ok(res.stdout.includes("DEC-0003"));
 });
 
 test("pack --budget greedily drops whole records and lists them in an Omitted section", () => {
-  runPack(["--budget", "60"]);
-  assert.ok(out.includes("## Omitted (budget)"));
+  const res = runCli(["pack", "--budget", "60"], { cwd: root });
+  assert.equal(res.status, 0);
+  assert.ok(res.stdout.includes("## Omitted (budget)"));
 });
 
 test("pack --json returns the pinned shape", () => {
-  runPack(["--json"]);
-  const parsed = JSON.parse(out);
+  const res = runCli(["pack", "--json"], { cwd: root });
+  assert.equal(res.status, 0);
+  const parsed = JSON.parse(res.stdout);
   assert.equal(parsed.version, 1);
   assert.equal(typeof parsed.budget, "number");
   assert.equal(typeof parsed.tokens, "number");
@@ -84,25 +73,23 @@ test("pack --budget overrides config pack_budget, which overrides the 2000 defau
   const config = readFileSync(configPath, "utf8");
   writeFileSync(configPath, config + "pack_budget: 60\n");
 
-  runPack(["--json"]);
-  let parsed = JSON.parse(out);
-  assert.equal(parsed.budget, 60);
+  let res = runCli(["pack", "--json"], { cwd: root });
+  assert.equal(JSON.parse(res.stdout).budget, 60);
 
-  out = "";
-  runPack(["--json", "--budget", "80"]);
-  parsed = JSON.parse(out);
-  assert.equal(parsed.budget, 80);
+  res = runCli(["pack", "--json", "--budget", "80"], { cwd: root });
+  assert.equal(JSON.parse(res.stdout).budget, 80);
 });
 
 test("pack default budget is 2000 when nothing overrides it", () => {
-  runPack(["--json"]);
-  const parsed = JSON.parse(out);
-  assert.equal(parsed.budget, 2000);
+  const res = runCli(["pack", "--json"], { cwd: root });
+  assert.equal(JSON.parse(res.stdout).budget, 2000);
 });
 
-test("pack throws a guidance-carrying UserError when state/status.md is missing", () => {
+test("pack exits non-zero with guidance when state/status.md is missing", () => {
   unlinkSync(join(root, ".agnosgram", "state", "status.md"));
-  assert.throws(() => runPack([]), /status\.md.*doctor|init/s);
+  const res = runCli(["pack"], { cwd: root });
+  assert.notEqual(res.status, 0);
+  assert.match(res.stderr, /status\.md.*doctor|init/s);
 });
 
 test("pack tokens stay within budget for a normal case, accounting for headings/joiners/footer", () => {
@@ -114,8 +101,8 @@ test("pack tokens stay within budget for a normal case, accounting for headings/
   }).join("\n");
   writeFileSync(join(root, ".agnosgram", "lessons", "pitfalls.md"), `# Pitfalls\n\n${many}\n`);
 
-  runPack(["--budget", "200", "--json"]);
-  const parsed = JSON.parse(out);
+  const res = runCli(["pack", "--budget", "200", "--json"], { cwd: root });
+  const parsed = JSON.parse(res.stdout);
   assert.ok(parsed.tokens <= parsed.budget, `expected tokens (${parsed.tokens}) <= budget (${parsed.budget})`);
   assert.ok(parsed.omitted.length > 0, "expected this store to overflow a 200-token budget");
 });
@@ -126,9 +113,9 @@ test("pack never surfaces meta/friction.md content, even when it exists", () => 
     join(root, ".agnosgram", "meta", "friction.md"),
     `# Friction\n\n${rec("FRI-001", "friction", "cli", "This is tool friction, not host-project memory.")}\n`,
   );
-  runPack(["--json"]);
-  assert.ok(!out.includes("FRI-001"));
-  assert.ok(!out.includes("tool friction, not host-project memory"));
+  const res = runCli(["pack", "--json"], { cwd: root });
+  assert.ok(!res.stdout.includes("FRI-001"));
+  assert.ok(!res.stdout.includes("tool friction, not host-project memory"));
 });
 
 test("pack's omitted footer is capped and summarizes the rest instead of listing every record", () => {
@@ -138,7 +125,14 @@ test("pack's omitted footer is capped and summarizes the rest instead of listing
   }).join("\n");
   writeFileSync(join(root, ".agnosgram", "lessons", "pitfalls.md"), `# Pitfalls\n\n${many}\n`);
 
-  runPack(["--budget", "150"]);
-  assert.ok(out.includes("## Omitted (budget)"));
-  assert.ok(/\.\.\.and \d+ more/.test(out), "expected a capped omitted footer with an '...and N more' tail");
+  const res = runCli(["pack", "--budget", "150"], { cwd: root });
+  assert.ok(res.stdout.includes("## Omitted (budget)"));
+  assert.ok(/\.\.\.and \d+ more/.test(res.stdout), "expected a capped omitted footer with an '...and N more' tail");
+});
+
+test("FRI-001: pack --budget -1 gives the existing validation error, not a raw parseArgs crash", () => {
+  const res = runCli(["pack", "--budget", "-1"], { cwd: root });
+  assert.notEqual(res.status, 0);
+  assert.match(res.stderr, /--budget must be a positive integer, got "-1"/);
+  assert.ok(!/at Object|node:internal|ERR_PARSE_ARGS/.test(res.stderr));
 });

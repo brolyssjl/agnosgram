@@ -3,19 +3,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { loadConfig } from "../core/config.js";
-import { runInit } from "./init.js";
+import { runCli } from "../conformance/harness.js";
 
 let root: string;
-let cwd: string;
 
 beforeEach(() => {
-  cwd = process.cwd();
   root = mkdtempSync(join(tmpdir(), "agnos-init-"));
-  process.chdir(root);
 });
 afterEach(() => {
-  process.chdir(cwd);
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -32,7 +27,8 @@ const SCAFFOLD = [
 ];
 
 test("init scaffolds the full store", () => {
-  runInit(["--json"]);
+  const res = runCli(["init", "--json"], { cwd: root });
+  assert.equal(res.status, 0);
   for (const rel of SCAFFOLD) {
     assert.ok(existsSync(join(root, ".agnosgram", rel)), `missing ${rel}`);
   }
@@ -42,35 +38,44 @@ test("init scaffolds the full store", () => {
 });
 
 test("init refuses to overwrite without --force", () => {
-  runInit(["--adapt", "none"]);
-  assert.throws(() => runInit(["--adapt", "none"]), /already exists/);
+  assert.equal(runCli(["init", "--adapt", "none"], { cwd: root }).status, 0);
+  const second = runCli(["init", "--adapt", "none"], { cwd: root });
+  assert.notEqual(second.status, 0);
+  assert.match(second.stderr, /already exists/);
 });
 
 test("init auto-adapts detected agents", () => {
   writeFileSync(join(root, "CLAUDE.md"), "# existing\n");
-  runInit([]);
+  assert.equal(runCli(["init"], { cwd: root }).status, 0);
   const claude = readFileSync(join(root, "CLAUDE.md"), "utf8");
   assert.ok(claude.includes(".agnosgram/MEMORY.md"));
-  const config = loadConfig(root);
-  assert.equal(config.adapters.claude, "on");
+  const config = readFileSync(join(root, ".agnosgram", "config.yml"), "utf8");
+  assert.match(config, /^\s*claude:\s*on\s*$/m);
 });
 
 test("init --adapt none writes no adapters", () => {
   writeFileSync(join(root, "AGENTS.md"), "# existing\n");
-  runInit(["--adapt", "none"]);
+  assert.equal(runCli(["init", "--adapt", "none"], { cwd: root }).status, 0);
   const agents = readFileSync(join(root, "AGENTS.md"), "utf8");
   assert.ok(!agents.includes(".agnosgram/MEMORY.md"));
 });
 
 test("init does not scaffold meta/ - it is opt-in via `feedback` on first use", () => {
-  runInit(["--adapt", "none"]);
+  assert.equal(runCli(["init", "--adapt", "none"], { cwd: root }).status, 0);
   assert.ok(!existsSync(join(root, ".agnosgram", "meta")));
 });
 
 test("init records SDD detection into config-driven hints", () => {
   mkdirSync(join(root, "openspec"), { recursive: true });
   writeFileSync(join(root, "AGENTS.md"), "");
-  runInit([]);
+  assert.equal(runCli(["init"], { cwd: root }).status, 0);
   const agents = readFileSync(join(root, "AGENTS.md"), "utf8");
   assert.ok(agents.includes("openspec/"));
+});
+
+test("FRI-001: init --adapt -none gives the existing validation error, not a raw parseArgs crash", () => {
+  const res = runCli(["init", "--adapt", "-none"], { cwd: root });
+  assert.notEqual(res.status, 0);
+  assert.match(res.stderr, /Unknown adapter\(s\) in --adapt: -none/);
+  assert.ok(!/at Object|node:internal|ERR_PARSE_ARGS/.test(res.stderr));
 });
