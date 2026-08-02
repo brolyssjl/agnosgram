@@ -8,7 +8,7 @@
  *   2. case-insensitive exact scope tag (`backend`, `Backend`, ...)
  *   3. type name (`pitfall` | `convention` | `decision`)
  */
-import { parseArgs } from "node:util";
+import { parseCliArgs } from "../core/args.js";
 import { KNOWN_TYPES } from "../core/frontmatter.js";
 import { info, printStructured, UserError, warn } from "../core/output.js";
 import { findProjectRoot, hasStore } from "../core/paths.js";
@@ -61,7 +61,7 @@ function renderHuman(records: StoreRecord[]): string {
 }
 
 export function runShow(argv: string[]): void {
-  const { values, positionals } = parseArgs({
+  const { values, positionals } = parseCliArgs({
     args: argv,
     allowPositionals: true,
     options: {

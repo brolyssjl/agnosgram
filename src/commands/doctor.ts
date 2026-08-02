@@ -1,5 +1,5 @@
 import { dirname, join } from "node:path";
-import { parseArgs } from "node:util";
+import { parseCliArgs } from "../core/args.js";
 import { loadConfig, type AgnosgramConfig } from "../core/config.js";
 import { daysBetween, todayIso } from "../core/dates.js";
 import { extractRecords, validateRecord, type Frontmatter } from "../core/frontmatter.js";
@@ -304,7 +304,7 @@ export function runDoctorChecks(root: string): DoctorReport {
 }
 
 export function runDoctor(argv: string[]): void {
-  const { values } = parseArgs({
+  const { values } = parseCliArgs({
     args: argv,
     allowPositionals: false,
     options: {

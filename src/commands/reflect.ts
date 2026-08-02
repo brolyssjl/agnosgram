@@ -12,7 +12,7 @@
  * separate artifact, never applied automatically. See
  * `.agnosgram/decisions/0003-human-in-the-loop-reflexive-loop.md`.
  */
-import { parseArgs } from "node:util";
+import { parseCliArgs } from "../core/args.js";
 import { loadFrictionRecords } from "../core/meta.js";
 import { printStructured, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore } from "../core/paths.js";
@@ -94,7 +94,7 @@ layout change must land together with a \`doctor\` change (CON-003).
 }
 
 export function runReflect(argv: string[]): void {
-  const { values } = parseArgs({
+  const { values } = parseCliArgs({
     args: argv,
     allowPositionals: false,
     options: {

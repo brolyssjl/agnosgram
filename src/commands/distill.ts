@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs } from "node:util";
+import { parseCliArgs } from "../core/args.js";
 import { loadConfig, type AgnosgramConfig } from "../core/config.js";
 import { extractRecords, KNOWN_CONFIDENCE, KNOWN_TYPES, validateRecord } from "../core/frontmatter.js";
 import { info, printJson, UserError } from "../core/output.js";
@@ -149,7 +149,7 @@ function archiveMonth(root: string, month: string): string {
 }
 
 export function runDistill(argv: string[]): void {
-  const { values } = parseArgs({
+  const { values } = parseCliArgs({
     args: argv,
     allowPositionals: false,
     options: {

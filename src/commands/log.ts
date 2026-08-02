@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs } from "node:util";
+import { parseCliArgs } from "../core/args.js";
 import { loadConfig } from "../core/config.js";
 import { info, printStructured, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore, memoryDir } from "../core/paths.js";
@@ -60,7 +60,7 @@ function readStdin(): string {
 }
 
 export function runLog(argv: string[]): void {
-  const { values } = parseArgs({
+  const { values } = parseCliArgs({
     args: argv,
     allowPositionals: false,
     options: {

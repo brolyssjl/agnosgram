@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs } from "node:util";
 import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter, type SddHint } from "../adapters/index.js";
+import { parseCliArgs } from "../core/args.js";
 import { hooksInstalled, installClaudeHooks } from "../core/claudeHooks.js";
 import { loadConfig, saveConfig, type AgnosgramConfig, type Toggle } from "../core/config.js";
 import { AGENT_TARGETS, detectAgents, detectSdd } from "../core/detect.js";
@@ -95,7 +95,7 @@ function validateTargets(targets: string[]): void {
 }
 
 export function runAdapt(argv: string[]): void {
-  const { values, positionals } = parseArgs({
+  const { values, positionals } = parseCliArgs({
     args: argv,
     allowPositionals: true,
     options: {

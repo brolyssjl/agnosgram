@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs } from "node:util";
 import { ADAPTER_KEYS, ADAPTERS } from "../adapters/index.js";
+import { parseCliArgs } from "../core/args.js";
 import { defaultConfig, saveConfig, type AgnosgramConfig } from "../core/config.js";
 import { detectAgents, detectSdd } from "../core/detect.js";
 import { info, printJson, UserError } from "../core/output.js";
@@ -65,7 +65,7 @@ function parseAdaptOption(raw: string | undefined): string[] | null {
 }
 
 export function runInit(argv: string[]): void {
-  const { values } = parseArgs({
+  const { values } = parseCliArgs({
     args: argv,
     allowPositionals: false,
     options: {
