@@ -82,6 +82,39 @@ LLM, sends no telemetry, and the human decides._
 - [x] Opt-in community feedback inbox (Discussions / `feedback/` PRs); agent-filed issues via `gh` with consent
 - [x] Human-in-the-loop guarantee: the tool proposes roadmap items, never auto-edits its own roadmap
 
+## Milestone 6 - Rust port & `1.0.0`
+_Owner decision (2026-08-02): `1.0.0` ships as a Rust implementation, ported
+against a frozen CLI surface with the existing test suite as a
+cross-implementation conformance suite. Primary distribution becomes prebuilt
+static binaries on GitHub Releases - npm leaves the user-facing install path.
+The on-disk format contract (DEC-0002) is unchanged and non-negotiable._
+
+### Round 1 - surface freeze (TS)
+- [ ] Shared CLI argument-parsing wrapper: option values starting with `-`
+      produce clean UserErrors, never parseArgs stack traces (resolves FRI-001)
+- [ ] Symlink-aware adapters: CLAUDE.md<->AGENTS.md symlinks reported as one
+      honest write (resolves FRI-003)
+- [ ] Conformance mode: CLI-surface tests run against `$AGNOSGRAM_BIN`
+      (`npm run conformance`); contract documented in CONTRIBUTING.md
+- [ ] Surface freeze declared: CLI commands/flags/outputs documented as the
+      port contract (decision record)
+
+### Round 2 - the port
+- [ ] Rust crate in-repo (one crate per tool; duplication with gate accepted):
+      identical CLI surface, zero behavior drift, conformance suite green
+      against the Rust binary on linux-x64 + darwin-arm64
+- [ ] Release pipeline builds Rust binaries on tag; `install.sh` unchanged
+      (already downloads binaries); `1.0.0-rc` tags from here
+
+### Round 3 - `1.0.0` gate (all required)
+- [ ] Upgrade story: version-stamped managed blocks, `doctor` warns on
+      stale artifacts, `adapt --refresh` shows a diff before updating
+- [ ] Soak: the real host projects run the Rust binaries daily through at
+      least one rc cycle
+- [ ] Docs site + case study (the 2026-07/08 constructflow soak writeup)
+- [ ] `1.0.0`: Rust binary is the canonical distribution; TS implementation
+      retired or demoted to reference
+
 ## Deferred (not scheduled)
 Semantic search / embeddings · per-user private memory (`local/`) · monorepo nested
-stores · SudoLang playbook variants · Go/Rust port (only if latency data demands it).
+stores · SudoLang playbook variants.
