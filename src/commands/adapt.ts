@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { parseArgs } from "node:util";
+import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { ADAPTER_KEYS, ADAPTERS, buildPointerBody, type Adapter, type SddHint } from "../adapters/index.js";
+import { parseCliArgs } from "../core/args.js";
 import { hooksInstalled, installClaudeHooks } from "../core/claudeHooks.js";
 import { loadConfig, saveConfig, type AgnosgramConfig, type Toggle } from "../core/config.js";
 import { AGENT_TARGETS, detectAgents, detectSdd } from "../core/detect.js";
@@ -16,6 +16,13 @@ export interface AdaptResult {
   adapter: string;
   path: string;
   action: AdaptAction;
+  /**
+   * Other adapter keys collapsed into this result because their target path
+   * is a symlink resolving to the same real file (FRI-003, e.g. CLAUDE.md ->
+   * AGENTS.md) - the managed block was written once, through `path`, not
+   * once per aliased adapter.
+   */
+  symlinkAliases?: { adapter: string; path: string }[];
 }
 
 /**
@@ -76,6 +83,76 @@ export function applyAdapter(root: string, adapter: Adapter, sddHints: SddHint[]
   }
 }
 
+function isSymlink(abs: string): boolean {
+  try {
+    return lstatSync(abs).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The real file a target path ultimately refers to, resolving through a
+ * symlink even when its target doesn't exist yet (e.g. CLAUDE.md is a
+ * symlink to a not-yet-created AGENTS.md) - `realpathSync` alone would throw
+ * in that case. Two adapters whose target paths resolve to the same real
+ * path are the same file on disk (FRI-003), whichever names they're
+ * requested under.
+ */
+function resolveRealPath(root: string, relPath: string): string {
+  const abs = join(root, relPath);
+  try {
+    return realpathSync(abs);
+  } catch {
+    if (isSymlink(abs)) return resolve(dirname(abs), readlinkSync(abs));
+    return abs;
+  }
+}
+
+/**
+ * Group requested adapter keys by the real file they resolve to, so a
+ * symlinked pair (CLAUDE.md -> AGENTS.md, or the reverse) is written and
+ * reported once instead of twice. Only collapses a group when at least one
+ * member's path is an actual on-disk symlink - a coincidental real-path
+ * match with no symlink involved is left as independent targets.
+ */
+function groupBySymlink(root: string, keys: string[]): string[][] {
+  const byRealPath = new Map<string, string[]>();
+  for (const key of keys) {
+    const relPath = resolveAdapterPath(root, ADAPTERS[key]!);
+    const real = resolveRealPath(root, relPath);
+    const group = byRealPath.get(real) ?? [];
+    group.push(key);
+    byRealPath.set(real, group);
+  }
+
+  const groups: string[][] = [];
+  for (const group of byRealPath.values()) {
+    const isAlias = group.length > 1 && group.some((key) => isSymlink(join(root, resolveAdapterPath(root, ADAPTERS[key]!))));
+    if (isAlias) {
+      groups.push(group);
+    } else {
+      for (const key of group) groups.push([key]);
+    }
+  }
+  return groups;
+}
+
+/** Apply one adapter, or a symlink-aliased group of adapters (FRI-003) that all
+ * resolve to the same real file - every adapter injects the same generic
+ * pointer body, so writing once through the non-symlink member is equivalent
+ * to writing through every alias. */
+function applyAdapterGroup(root: string, keys: string[], sddHints: SddHint[]): AdaptResult {
+  if (keys.length === 1) return applyAdapter(root, ADAPTERS[keys[0]!]!, sddHints);
+
+  const withPaths = keys.map((key) => ({ key, relPath: resolveAdapterPath(root, ADAPTERS[key]!) }));
+  const primary = withPaths.find((t) => !isSymlink(join(root, t.relPath))) ?? withPaths[0]!;
+  const aliases = withPaths.filter((t) => t.key !== primary.key);
+
+  const result = applyAdapter(root, ADAPTERS[primary.key]!, sddHints);
+  return { ...result, symlinkAliases: aliases.map((a) => ({ adapter: a.key, path: a.relPath })) };
+}
+
 /** Adapters that should be written when no explicit targets are given. */
 export function resolveEnabledAdapters(root: string, config: AgnosgramConfig): string[] {
   const detected = new Set(detectAgents(root).map((a) => a.key));
@@ -95,7 +172,7 @@ function validateTargets(targets: string[]): void {
 }
 
 export function runAdapt(argv: string[]): void {
-  const { values, positionals } = parseArgs({
+  const { values, positionals } = parseCliArgs({
     args: argv,
     allowPositionals: true,
     options: {
@@ -143,7 +220,7 @@ export function runAdapt(argv: string[]): void {
   }
 
   const sddHints = resolveSddHints(root, config);
-  const results = targets.map((key) => applyAdapter(root, ADAPTERS[key]!, sddHints));
+  const results = groupBySymlink(root, targets).map((group) => applyAdapterGroup(root, group, sddHints));
   const hooksResult = claudeHooks ? installClaudeHooks(root) : null;
 
   if (values.json) {
@@ -157,7 +234,12 @@ export function runAdapt(argv: string[]): void {
 
   for (const r of results) {
     const verb = r.action === "unchanged" ? "unchanged" : r.action;
-    info(`  ${verb.padEnd(9)} ${r.path}  (${ADAPTERS[r.adapter]!.name})`);
+    if (r.symlinkAliases && r.symlinkAliases.length > 0) {
+      const aliasPaths = r.symlinkAliases.map((a) => a.path).join(", ");
+      info(`  ${verb.padEnd(9)} ${aliasPaths} -> ${r.path} (symlink), managed block written once`);
+    } else {
+      info(`  ${verb.padEnd(9)} ${r.path}  (${ADAPTERS[r.adapter]!.name})`);
+    }
   }
   if (sddHints.length > 0 && results.length > 0) {
     const summary = sddHints

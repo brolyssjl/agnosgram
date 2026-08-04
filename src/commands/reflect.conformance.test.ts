@@ -1,33 +1,18 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { runInit } from "./init.js";
-import { runReflect } from "./reflect.js";
+import { runCli } from "../conformance/harness.js";
 
 let root: string;
-let cwd: string;
-let out: string;
-let origWrite: typeof process.stdout.write;
 
 beforeEach(() => {
-  cwd = process.cwd();
   root = mkdtempSync(join(tmpdir(), "agnos-reflect-"));
-  process.chdir(root);
-  runInit(["--adapt", "none"]);
-  out = "";
-  origWrite = process.stdout.write.bind(process.stdout);
-  process.stdout.write = ((chunk: string | Uint8Array) => {
-    out += chunk.toString();
-    return true;
-  }) as typeof process.stdout.write;
+  assert.equal(runCli(["init", "--adapt", "none"], { cwd: root }).status, 0);
 });
 afterEach(() => {
-  process.stdout.write = origWrite;
-  process.chdir(cwd);
   rmSync(root, { recursive: true, force: true });
-  process.exitCode = 0;
 });
 
 function writeFriction(root_: string, body: string): void {
@@ -51,11 +36,16 @@ function snapshot(dir: string): Map<string, number> {
 }
 
 test("reflect emits a prompt naming friction, journal months, and the ROADMAP rule", () => {
-  runReflect([]);
-  assert.ok(out.includes("reflect task"));
-  assert.ok(out.includes("meta/friction.md"));
-  assert.ok(out.includes("ROADMAP.md is owner-edited") || out.includes("owner-edited"));
-  assert.ok(out.includes("never to `ROADMAP.md` directly") || out.includes("never applied automatically") || out.includes("never disposes"));
+  const res = runCli(["reflect"], { cwd: root });
+  assert.equal(res.status, 0);
+  assert.ok(res.stdout.includes("reflect task"));
+  assert.ok(res.stdout.includes("meta/friction.md"));
+  assert.ok(res.stdout.includes("ROADMAP.md is owner-edited") || res.stdout.includes("owner-edited"));
+  assert.ok(
+    res.stdout.includes("never to `ROADMAP.md` directly") ||
+      res.stdout.includes("never applied automatically") ||
+      res.stdout.includes("never disposes"),
+  );
 });
 
 test("reflect includes captured friction entries in its digest", () => {
@@ -63,9 +53,9 @@ test("reflect includes captured friction entries in its digest", () => {
     root,
     `---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: medium\ncreated: 2026-07-30\nlast_verified: 2026-07-30\nsource: meta/friction.md\n---\nThe doctor error message was confusing.\n`,
   );
-  runReflect([]);
-  assert.ok(out.includes("FRI-001"));
-  assert.ok(out.includes("doctor error message was confusing"));
+  const res = runCli(["reflect"], { cwd: root });
+  assert.ok(res.stdout.includes("FRI-001"));
+  assert.ok(res.stdout.includes("doctor error message was confusing"));
 });
 
 test("reflect --json returns a versioned envelope with friction and journal coverage", () => {
@@ -73,8 +63,8 @@ test("reflect --json returns a versioned envelope with friction and journal cove
     root,
     `---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: medium\ncreated: 2026-07-30\nlast_verified: 2026-07-30\nsource: meta/friction.md\n---\nSomething was confusing.\n`,
   );
-  runReflect(["--json"]);
-  const parsed = JSON.parse(out);
+  const res = runCli(["reflect", "--json"], { cwd: root });
+  const parsed = JSON.parse(res.stdout);
   assert.equal(parsed.agnosgram_reflect, 1);
   assert.deepEqual(parsed.friction_ids, ["FRI-001"]);
   assert.equal(parsed.friction_count, 1);
@@ -87,7 +77,7 @@ test("reflect --months limits how many recent journal months are listed", () => 
   for (const m of ["2026-01", "2026-02", "2026-03", "2026-04"]) {
     writeFileSync(join(journalDir, `${m}.md`), `# Journal - ${m}\n`);
   }
-  // runInit already created the current month's journal file too, so with
+  // init already created the current month's journal file too, so with
   // --months 2 the two most recent (by name) win, whatever "current" is.
   const allMonths = readdirSync(journalDir)
     .filter((f) => /^\d{4}-\d{2}\.md$/.test(f))
@@ -95,21 +85,34 @@ test("reflect --months limits how many recent journal months are listed", () => 
     .sort();
   const expected = allMonths.slice(-2);
 
-  runReflect(["--months", "2", "--json"]);
-  const parsed = JSON.parse(out);
+  const res = runCli(["reflect", "--months", "2", "--json"], { cwd: root });
+  const parsed = JSON.parse(res.stdout);
   assert.deepEqual(parsed.journal_months.slice().sort(), expected);
 });
 
 test("reflect rejects a non-positive --months", () => {
-  assert.throws(() => runReflect(["--months", "0"]), /--months must be a positive integer/);
+  const res = runCli(["reflect", "--months", "0"], { cwd: root });
+  assert.notEqual(res.status, 0);
+  assert.match(res.stderr, /--months must be a positive integer/);
 });
 
 test("reflect rejects a non-integer --months instead of silently truncating", () => {
-  assert.throws(() => runReflect(["--months", "2.5"]), /--months must be a positive integer/);
+  const res = runCli(["reflect", "--months", "2.5"], { cwd: root });
+  assert.notEqual(res.status, 0);
+  assert.match(res.stderr, /--months must be a positive integer/);
 });
 
 test("reflect rejects a --months with trailing junk instead of silently parsing a prefix", () => {
-  assert.throws(() => runReflect(["--months", "3abc"]), /--months must be a positive integer/);
+  const res = runCli(["reflect", "--months", "3abc"], { cwd: root });
+  assert.notEqual(res.status, 0);
+  assert.match(res.stderr, /--months must be a positive integer/);
+});
+
+test("FRI-001: reflect --months -1 gives the existing validation error, not a raw parseArgs crash", () => {
+  const res = runCli(["reflect", "--months", "-1"], { cwd: root });
+  assert.notEqual(res.status, 0);
+  assert.match(res.stderr, /--months must be a positive integer, got "-1"/);
+  assert.ok(!/at Object|node:internal|ERR_PARSE_ARGS/.test(res.stderr));
 });
 
 test("reflect performs no writes to the repo (read-only)", () => {
@@ -118,8 +121,8 @@ test("reflect performs no writes to the repo (read-only)", () => {
     `---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: medium\ncreated: 2026-07-30\nlast_verified: 2026-07-30\nsource: meta/friction.md\n---\nSome friction.\n`,
   );
   const before = snapshot(join(root, ".agnosgram"));
-  runReflect([]);
-  runReflect(["--json"]);
+  runCli(["reflect"], { cwd: root });
+  runCli(["reflect", "--json"], { cwd: root });
   const after = snapshot(join(root, ".agnosgram"));
   assert.deepEqual([...after.keys()].sort(), [...before.keys()].sort(), "reflect must not create or delete any file");
   for (const [file, mtime] of before) {

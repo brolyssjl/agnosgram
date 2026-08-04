@@ -11,30 +11,19 @@ import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { runFeedback } from "./feedback.js";
-import { runInit } from "./init.js";
-import { runReflect } from "./reflect.js";
+import { runCli } from "../conformance/harness.js";
 
 let root: string;
-let cwd: string;
-let origWrite: typeof process.stdout.write;
 
 beforeEach(() => {
-  cwd = process.cwd();
   root = mkdtempSync(join(tmpdir(), "agnos-reflexive-"));
-  process.chdir(root);
-  runInit(["--adapt", "none"]);
+  assert.equal(runCli(["init", "--adapt", "none"], { cwd: root }).status, 0);
   // A host-project file alongside .agnosgram/, so "the working tree" means
   // more than just the store.
   writeFileSync(join(root, "ROADMAP.md"), "# Roadmap\n- [ ] Milestone 5\n");
-  origWrite = process.stdout.write.bind(process.stdout);
-  process.stdout.write = (() => true) as typeof process.stdout.write;
 });
 afterEach(() => {
-  process.stdout.write = origWrite;
-  process.chdir(cwd);
   rmSync(root, { recursive: true, force: true });
-  process.exitCode = 0;
 });
 
 /** Every regular file under `dir`, recursively, as a project-root-relative
@@ -53,10 +42,10 @@ function snapshot(dir: string, base: string = dir): Map<string, number> {
 }
 
 test("reflect leaves the entire working tree untouched", () => {
-  runFeedback(["seed friction so reflect has something to digest"]);
+  runCli(["feedback", "seed friction so reflect has something to digest"], { cwd: root });
   const before = snapshot(root);
-  runReflect([]);
-  runReflect(["--json", "--months", "12"]);
+  runCli(["reflect"], { cwd: root });
+  runCli(["reflect", "--json", "--months", "12"], { cwd: root });
   const after = snapshot(root);
   assert.deepEqual([...after.keys()].sort(), [...before.keys()].sort(), "reflect must not create or delete any file");
   for (const [file, mtime] of before) {
@@ -66,8 +55,8 @@ test("reflect leaves the entire working tree untouched", () => {
 
 test("feedback writes only under .agnosgram/meta/", () => {
   const before = snapshot(root);
-  runFeedback(["only meta/ should change"]);
-  runFeedback(["a second entry, still only meta/"]);
+  runCli(["feedback", "only meta/ should change"], { cwd: root });
+  runCli(["feedback", "a second entry, still only meta/"], { cwd: root });
   const after = snapshot(root);
 
   const beforeKeys = new Set(before.keys());

@@ -13,7 +13,7 @@ import { runReflect } from "./commands/reflect.js";
 import { runShow } from "./commands/show.js";
 import { UserError, warn } from "./core/output.js";
 
-const VERSION = "0.10.0";
+const VERSION = "0.11.0";
 
 const HELP = `agnosgram - agent-agnostic, per-project memory (plain Markdown in your repo)
 

@@ -16,6 +16,56 @@ All changes land through pull requests.
    item it advances. CI (build + test + bench gate, Node 20 & 22) must be green.
 5. **Merge** into `main` (squash preferred). Then update the roadmap checkbox.
 
+## Conformance mode
+
+Starting at `0.11.0`, the CLI surface is frozen ahead of a planned Rust port
+(Milestone 6): the TypeScript implementation is the reference, and the test
+suite that exercises the CLI surface is written to be **binary-agnostic**, so
+the same tests can later validate a from-scratch reimplementation.
+
+Two kinds of test live side by side under `src/`:
+
+- **`*.test.ts`** - unit tests of internals (pure functions, the `doctor`
+  findings engine, YAML/TOON encoders, etc). These import command modules
+  directly and run in-process. They are not part of conformance, since they
+  test implementation, not surface.
+- **`*.conformance.test.ts`** - tests of the CLI surface itself: argv
+  parsing, stdout/stderr, exit codes, and on-disk effects. These never import
+  command internals - they spawn a binary via the shared harness in
+  `src/conformance/harness.ts` (`runCli(args, { cwd, input?, env? })`) and
+  assert only on what a real invocation produces.
+
+`npm test` runs everything. `npm run conformance` runs only the
+`*.conformance.test.ts` subset, against whichever binary `AGNOSGRAM_BIN`
+points at:
+
+```bash
+# Default: build this checkout, run its dist/cli.js
+npm run conformance
+
+# Validate an installed release, or a from-scratch reimplementation
+AGNOSGRAM_BIN=$(command -v agnosgram) npm run conformance
+AGNOSGRAM_BIN="/path/to/agnosgram-rs" npm run conformance
+```
+
+`AGNOSGRAM_BIN` is either a directly-executable binary or a `command arg...`
+string (split on whitespace); it defaults to `node dist/cli.js` from this
+checkout. When adding a new command or flag: if the behavior is reachable
+only through the CLI (argv parsing, formatted output, exit codes, file
+side-effects), it belongs in a `*.conformance.test.ts`; internals that are
+also unit-testable in isolation (and aren't already covered by a conformance
+test) can additionally get a plain `*.test.ts`. A `*.conformance.test.ts`
+file must only ever import the harness and Node builtins - never a command
+or `core/` module - or it stops being binary-agnostic.
+
+The frozen surface has **no short options** (no `-b` for `--budget` or
+similar) on any command - every flag is long-form only. `parseCliArgs`'s
+short-option glue path (`src/core/args.ts`) is dead code against the real
+surface; it's kept, with its own unit test, only because `node:util`'s
+`parseArgs` supports short aliases generically and a future flag could add
+one. The Rust port's argv parser does not need to implement short-option
+handling to match this surface.
+
 ## Releases
 
 Releases are tag-driven. The `Release` workflow runs on any `v*.*.*` tag: it builds,

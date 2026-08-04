@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs } from "node:util";
+import { parseCliArgs } from "../core/args.js";
 import { loadConfig } from "../core/config.js";
 import { detectAgents, detectSdd } from "../core/detect.js";
 import { info, printJson, UserError } from "../core/output.js";
@@ -92,7 +92,7 @@ Run \`agnosgram doctor\` and resolve anything it flags (budgets, links).
 }
 
 export function runBootstrap(argv: string[]): void {
-  const { values } = parseArgs({
+  const { values } = parseCliArgs({
     args: argv,
     allowPositionals: false,
     options: {

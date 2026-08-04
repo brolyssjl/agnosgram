@@ -12,7 +12,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { parseArgs } from "node:util";
+import { parseCliArgs } from "../core/args.js";
 import { isValidIsoDate } from "../core/dates.js";
 import { info, printStructured, UserError } from "../core/output.js";
 import { findProjectRoot, hasStore } from "../core/paths.js";
@@ -340,7 +340,7 @@ function validateReport(root: string, reportPath: string): ValidateResult {
 }
 
 export function runAdvise(argv: string[]): void {
-  const { values, positionals } = parseArgs({
+  const { values, positionals } = parseCliArgs({
     args: argv,
     allowPositionals: true,
     options: {

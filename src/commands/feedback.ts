@@ -11,7 +11,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs } from "node:util";
+import { parseCliArgs } from "../core/args.js";
 import { loadConfig } from "../core/config.js";
 import { KNOWN_CONFIDENCE } from "../core/frontmatter.js";
 import { FRICTION_FILE, FRICTION_TYPE, loadFrictionRecords } from "../core/meta.js";
@@ -90,7 +90,7 @@ function shareCommand(id: string, text: string, scope: string[]): string {
 }
 
 export function runFeedback(argv: string[]): void {
-  const { values, positionals } = parseArgs({
+  const { values, positionals } = parseCliArgs({
     args: argv,
     allowPositionals: true,
     options: {
