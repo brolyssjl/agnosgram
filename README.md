@@ -10,25 +10,55 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
-> **Status:** `0.10.0`. Milestones 1-5 are done and dogfooded on this repo: capture
+> **Status:** `0.11.0`. Milestones 1-5 are done and dogfooded on this repo: capture
 > (`init` / `adapt` / `log`), the self-maintaining half (`doctor` / `distill` /
 > `bootstrap`), retrieval (`pack` / `show` / `advise`), reach (every mainstream
 > adapter, opt-in Claude Code hooks, `install.sh` + binaries, SDD coexistence), and
 > the reflexive loop (`feedback` / `reflect`, a strictly separate `meta/` namespace).
 > **The on-disk `.agnosgram/` format is frozen** at format version 1 - safe to adopt
-> on a real, even legacy, project. `1.0.0` follows a real-world soak period; see
-> [ROADMAP.md](ROADMAP.md). See the [schema reference](docs/schema-reference.md).
+> on a real, even legacy, project - and `0.11.0` freezes the CLI surface as the
+> Milestone 6 Rust port contract (DEC-0004). `1.0.0` ships as that Rust port after
+> a real-world soak; see [ROADMAP.md](ROADMAP.md) and the
+> [schema reference](docs/schema-reference.md).
 
 ## Install
 
 ```bash
-npm i -g agnosgram      # daily use
-npx agnosgram init      # zero-install trial
+curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh | bash
 ```
 
-Requires Node ≥ 20. Zero runtime dependencies. No local Node? Use the install
-script instead, which fetches a prebuilt binary: see
-**[docs/install.md](docs/install.md)**.
+While this repository is private, the unauthenticated one-liner 404s (both
+the raw script and the release assets). Run the script from a clone instead -
+it falls back to `gh release download`, which reuses your GitHub auth:
+
+```bash
+git clone https://github.com/brolyssjl/agnosgram.git && ./agnosgram/install.sh
+```
+
+Fetches the prebuilt binary for your platform from the latest GitHub release
+and puts it on `PATH` - no local Node required. Binaries have shipped since
+`0.9.0`: `linux-x64` and `darwin-arm64`. No matching binary yet? The script
+falls back to honest build-from-source steps instead of guessing. Full
+details: **[docs/install.md](docs/install.md)**.
+
+`agnosgram` is not published to npm yet - per the Milestone 6 decision (see
+[ROADMAP.md](ROADMAP.md)), prebuilt binaries are the canonical distribution
+and npm stays off the user-facing install path for now, so `npm i -g
+agnosgram` will 404 until that changes. Building from source or using npm
+(once published) both require Node ≥ 20; the binary path does not.
+
+### Read-only global npm prefix (nix, managed machines)
+
+If your npm global prefix is read-only (nix-managed Node, some managed
+corporate machines), `npm install -g` fails against that prefix and npm's
+error tells you to run as root - misleading, since the real problem is the
+read-only prefix, not permissions `sudo` can fix. Two options that actually
+work:
+
+- Use `install.sh` above - it never touches the npm global prefix.
+- Point npm at a writable prefix you own, once `agnosgram` is on npm:
+  `NPM_CONFIG_PREFIX=$HOME/.npm-global npm i -g agnosgram`, then add
+  `export PATH="$HOME/.npm-global/bin:$PATH"` to your shell profile.
 
 ## Quick start
 
@@ -117,18 +147,22 @@ Milestones 1-5 are done and dogfooded: capture (`init` / `adapt` / `log`), the
 self-maintaining half (`doctor` / `distill` / `bootstrap`), retrieval (`pack` /
 `show` / `advise`), reach (adapters, Claude Code hooks, install.sh + binaries,
 SDD coexistence), and the reflexive loop (`feedback` / `reflect`), with the
-on-disk format frozen at version 1. Full plan with progress checkboxes and
-release checkpoints: **[ROADMAP.md](ROADMAP.md)**.
+on-disk format frozen at version 1. Milestone 6 - the Rust port that becomes
+`1.0.0` - is underway. Full plan with progress checkboxes and release
+checkpoints: **[ROADMAP.md](ROADMAP.md)**.
 
 **`0.5.0`** was the first release safe to adopt on a real project: frontmatter
 schema validation, `doctor`, `distill`, and a frozen on-disk format.
 **`0.8.0`** added the killer feature: `advise`, the contradiction-catcher, plus
 `pack` and `show`. **`0.9.0`** was Milestone 4: every mainstream adapter,
 opt-in Claude Code hooks, `install.sh` + prebuilt binaries, and deeper SDD
-coexistence. **`0.10.0`** (this release) is Milestone 5, the reflexive loop:
+coexistence. **`0.10.0`** was Milestone 5, the reflexive loop:
 `feedback` captures tool friction into a separate, additive `meta/` namespace;
 `reflect` turns it into proposals - the tool proposes, a human decides.
-`1.0.0` follows a real-world soak on a real project.
+**`0.11.0`** (this release) opens Milestone 6: the CLI surface is frozen as
+the Rust port contract (DEC-0004), enforced by the conformance suite
+(`npm run conformance` against `$AGNOSGRAM_BIN`). `1.0.0` is the Rust port
+itself, after a real-world soak on a real project.
 
 ## How it compares
 
