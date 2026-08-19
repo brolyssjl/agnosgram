@@ -10,14 +10,16 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
-> **Status:** `0.10.0`. Milestones 1-5 are done and dogfooded on this repo: capture
+> **Status:** `0.11.0`. Milestones 1-5 are done and dogfooded on this repo: capture
 > (`init` / `adapt` / `log`), the self-maintaining half (`doctor` / `distill` /
 > `bootstrap`), retrieval (`pack` / `show` / `advise`), reach (every mainstream
 > adapter, opt-in Claude Code hooks, `install.sh` + binaries, SDD coexistence), and
 > the reflexive loop (`feedback` / `reflect`, a strictly separate `meta/` namespace).
 > **The on-disk `.agnosgram/` format is frozen** at format version 1 - safe to adopt
-> on a real, even legacy, project. `1.0.0` follows a real-world soak period; see
-> [ROADMAP.md](ROADMAP.md). See the [schema reference](docs/schema-reference.md).
+> on a real, even legacy, project - and `0.11.0` freezes the CLI surface as the
+> Milestone 6 Rust port contract (DEC-0004). `1.0.0` ships as that Rust port after
+> a real-world soak; see [ROADMAP.md](ROADMAP.md) and the
+> [schema reference](docs/schema-reference.md).
 
 ## Install
 
@@ -145,18 +147,22 @@ Milestones 1-5 are done and dogfooded: capture (`init` / `adapt` / `log`), the
 self-maintaining half (`doctor` / `distill` / `bootstrap`), retrieval (`pack` /
 `show` / `advise`), reach (adapters, Claude Code hooks, install.sh + binaries,
 SDD coexistence), and the reflexive loop (`feedback` / `reflect`), with the
-on-disk format frozen at version 1. Full plan with progress checkboxes and
-release checkpoints: **[ROADMAP.md](ROADMAP.md)**.
+on-disk format frozen at version 1. Milestone 6 - the Rust port that becomes
+`1.0.0` - is underway. Full plan with progress checkboxes and release
+checkpoints: **[ROADMAP.md](ROADMAP.md)**.
 
 **`0.5.0`** was the first release safe to adopt on a real project: frontmatter
 schema validation, `doctor`, `distill`, and a frozen on-disk format.
 **`0.8.0`** added the killer feature: `advise`, the contradiction-catcher, plus
 `pack` and `show`. **`0.9.0`** was Milestone 4: every mainstream adapter,
 opt-in Claude Code hooks, `install.sh` + prebuilt binaries, and deeper SDD
-coexistence. **`0.10.0`** (this release) is Milestone 5, the reflexive loop:
+coexistence. **`0.10.0`** was Milestone 5, the reflexive loop:
 `feedback` captures tool friction into a separate, additive `meta/` namespace;
 `reflect` turns it into proposals - the tool proposes, a human decides.
-`1.0.0` follows a real-world soak on a real project.
+**`0.11.0`** (this release) opens Milestone 6: the CLI surface is frozen as
+the Rust port contract (DEC-0004), enforced by the conformance suite
+(`npm run conformance` against `$AGNOSGRAM_BIN`). `1.0.0` is the Rust port
+itself, after a real-world soak on a real project.
 
 ## How it compares
 
