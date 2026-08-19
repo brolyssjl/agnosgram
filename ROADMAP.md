@@ -89,14 +89,14 @@ cross-implementation conformance suite. Primary distribution becomes prebuilt
 static binaries on GitHub Releases - npm leaves the user-facing install path.
 The on-disk format contract (DEC-0002) is unchanged and non-negotiable._
 
-### Round 1 - surface freeze (TS)
-- [ ] Shared CLI argument-parsing wrapper: option values starting with `-`
+### Round 1 - surface freeze (TS) ✅ done
+- [x] Shared CLI argument-parsing wrapper: option values starting with `-`
       produce clean UserErrors, never parseArgs stack traces (resolves FRI-001)
-- [ ] Symlink-aware adapters: CLAUDE.md<->AGENTS.md symlinks reported as one
+- [x] Symlink-aware adapters: CLAUDE.md<->AGENTS.md symlinks reported as one
       honest write (resolves FRI-003)
-- [ ] Conformance mode: CLI-surface tests run against `$AGNOSGRAM_BIN`
+- [x] Conformance mode: CLI-surface tests run against `$AGNOSGRAM_BIN`
       (`npm run conformance`); contract documented in CONTRIBUTING.md
-- [ ] Surface freeze declared: CLI commands/flags/outputs documented as the
+- [x] Surface freeze declared: CLI commands/flags/outputs documented as the
       port contract (decision record)
 
 ### Round 2 - the port
