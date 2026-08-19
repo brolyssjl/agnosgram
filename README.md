@@ -25,6 +25,14 @@ API keys, no network after install. Any agent that can read a file can use it.
 curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh | bash
 ```
 
+While this repository is private, the unauthenticated one-liner 404s (both
+the raw script and the release assets). Run the script from a clone instead -
+it falls back to `gh release download`, which reuses your GitHub auth:
+
+```bash
+git clone https://github.com/brolyssjl/agnosgram.git && ./agnosgram/install.sh
+```
+
 Fetches the prebuilt binary for your platform from the latest GitHub release
 and puts it on `PATH` - no local Node required. Binaries have shipped since
 `0.9.0`: `linux-x64` and `darwin-arm64`. No matching binary yet? The script

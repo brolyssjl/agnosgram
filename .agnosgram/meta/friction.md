@@ -59,7 +59,12 @@ documents the read-only global npm prefix case (nix, managed machines):
 working options are `install.sh`, or `NPM_CONFIG_PREFIX=$HOME/.npm-global`
 (with the matching `PATH` export) for anyone who wants npm once it is
 published. Same content duplicated into docs/install.md for the detailed
-version README links to.
+version README links to. One deeper cause surfaced during the E2E install
+verification: the repo is private, so unauthenticated downloads of release
+assets (and the raw install.sh one-liner) 404 even when the assets exist -
+`install.sh` now falls back to `gh release download` (authenticated) when
+plain curl fails, and the docs say to run it from a clone until the repo
+goes public.
 
 Install story failed twice on a real machine (nix-managed Node): npm install -g dies on the read-only /nix/store global prefix with npm's misleading run-as-root advice, and install.sh's primary path 404s because no GitHub Release assets exist for the tagged versions despite the release workflow being expected to build them on tag push. A newcomer has no working install path; the workaround (npm ci in a tag-pinned worktree + a shim in ~/.local/bin) is undiscoverable. Wants: publish release assets for existing tags, and docs for the read-only-prefix case (NPM_CONFIG_PREFIX or pointing at install.sh binaries).
 

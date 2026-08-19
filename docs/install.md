@@ -18,6 +18,13 @@ it prints build-from-source instructions instead of attempting an npm install
 that can't work yet - see below. Nothing here needs network access again after
 install: the CLI itself never calls out.
 
+While the repository is private, the unauthenticated one-liner 404s - both
+the raw script URL and the asset download. Run the script from a clone
+instead: when the plain download fails it falls back to
+`gh release download`, which reuses your GitHub auth and sees the same
+assets. The curl path starts working for everyone the moment the repository
+goes public.
+
 Read the script before piping it into `bash` if you'd rather - it's a plain,
 short, `set -euo pipefail` shell script with no hidden steps.
 
