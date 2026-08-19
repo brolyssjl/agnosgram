@@ -42,9 +42,25 @@ type: friction
 scope: [tooling]
 confidence: medium
 created: 2026-08-01
-last_verified: 2026-08-01
+last_verified: 2026-08-19
 source: meta/friction.md
 ---
+RESOLVED (0.11.0): releases from `0.9.0` onward carry `agnosgram-linux-x64`
+and `agnosgram-darwin-arm64` binary assets (the binary pipeline landed in
+Milestone 4), so `install.sh`'s primary `releases/latest/download/` path
+works, and `0.11.0` is being tagged now to keep `latest` current. `install.sh`
+no longer dead-ends into a guaranteed-404 `npm install -g agnosgram` when a
+platform or asset is missing - it prints honest build-from-source steps
+instead (`git clone`, `npm ci`, `npm run build`, `node dist/cli.js` or `npm
+link`), matching the Milestone 6 decision that npm leaves the user-facing
+install path. README.md's Install section now leads with `install.sh` and
+documents the read-only global npm prefix case (nix, managed machines):
+`npm install -g` fails there with misleading run-as-root advice; the two
+working options are `install.sh`, or `NPM_CONFIG_PREFIX=$HOME/.npm-global`
+(with the matching `PATH` export) for anyone who wants npm once it is
+published. Same content duplicated into docs/install.md for the detailed
+version README links to.
+
 Install story failed twice on a real machine (nix-managed Node): npm install -g dies on the read-only /nix/store global prefix with npm's misleading run-as-root advice, and install.sh's primary path 404s because no GitHub Release assets exist for the tagged versions despite the release workflow being expected to build them on tag push. A newcomer has no working install path; the workaround (npm ci in a tag-pinned worktree + a shim in ~/.local/bin) is undiscoverable. Wants: publish release assets for existing tags, and docs for the read-only-prefix case (NPM_CONFIG_PREFIX or pointing at install.sh binaries).
 
 ---

@@ -1,35 +1,67 @@
 # Install
 
-## npm (recommended if you already have Node)
-
-```bash
-npm i -g agnosgram      # daily use
-npx agnosgram init      # zero-install trial
-```
-
-Requires Node >= 20. Zero runtime dependencies either way.
-
-## install.sh (no local npm install)
+## install.sh (recommended)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh | bash
 ```
 
 This fetches the single-file binary for your platform (`linux-x64` or
-`darwin-arm64`) from `github.com/<repo>/releases/latest/download/<asset>` - a
-redirect straight to the current release's asset, no separate API call to
-resolve the tag first - and places it at `~/.local/bin/agnosgram` (override with
+`darwin-arm64`, built since `0.9.0`) from
+`github.com/<repo>/releases/latest/download/<asset>` - a redirect straight to
+the current release's asset, no separate API call to resolve the tag first -
+and places it at `~/.local/bin/agnosgram` (override with
 `AGNOSGRAM_INSTALL_DIR`). The download goes to a temp file first and is only
 moved into place once it succeeds, so a failed transfer never leaves a truncated
-binary behind. If your platform or architecture has no matching release asset
-yet, it falls back to `npm install -g agnosgram` when Node is available -
-otherwise it tells you what to install by hand. Nothing here needs network
-access again after install: the CLI itself never calls out.
+binary behind. If your platform or architecture has no matching release asset,
+it prints build-from-source instructions instead of attempting an npm install
+that can't work yet - see below. Nothing here needs network access again after
+install: the CLI itself never calls out.
 
 Read the script before piping it into `bash` if you'd rather - it's a plain,
 short, `set -euo pipefail` shell script with no hidden steps.
 
-## Building the binary yourself
+## npm
+
+```bash
+npm i -g agnosgram      # once published
+npx agnosgram init      # zero-install trial, once published
+```
+
+Requires Node >= 20, zero runtime dependencies either way. **Not published
+yet**: per the Milestone 6 owner decision (see `.agnosgram/decisions/` and
+`ROADMAP.md`), prebuilt binaries are the canonical distribution and npm stays
+off the user-facing install path, so `npm i -g agnosgram` 404s until that
+changes. Use `install.sh` above, or build from source below, in the meantime.
+
+### Read-only global npm prefix (nix, managed machines)
+
+On a nix-managed machine, or any host where the npm global prefix is
+read-only, `npm install -g` fails against that prefix and npm's error tells
+you to run as root or fix permissions - misleading, since the actual problem
+is the read-only prefix, not something `sudo` fixes. Two options that
+actually work:
+
+- `install.sh` above - it never touches the npm global prefix.
+- Point npm at a writable prefix you own:
+  `NPM_CONFIG_PREFIX=$HOME/.npm-global npm i -g agnosgram` (once published),
+  then add `export PATH="$HOME/.npm-global/bin:$PATH"` to your shell profile.
+
+## Build from source
+
+```bash
+git clone https://github.com/brolyssjl/agnosgram.git
+cd agnosgram
+npm ci
+npm run build
+node dist/cli.js --help   # run directly, or:
+npm link                  # put `agnosgram` on PATH instead
+```
+
+Requires Node >= 20. This is exactly what `install.sh` tells you to do when
+there is no matching binary asset for your platform.
+
+## Building the (single-file) binary yourself
 
 ```bash
 npm run build           # tsc -> dist/

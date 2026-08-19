@@ -22,13 +22,33 @@ API keys, no network after install. Any agent that can read a file can use it.
 ## Install
 
 ```bash
-npm i -g agnosgram      # daily use
-npx agnosgram init      # zero-install trial
+curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh | bash
 ```
 
-Requires Node ≥ 20. Zero runtime dependencies. No local Node? Use the install
-script instead, which fetches a prebuilt binary: see
-**[docs/install.md](docs/install.md)**.
+Fetches the prebuilt binary for your platform from the latest GitHub release
+and puts it on `PATH` - no local Node required. Binaries have shipped since
+`0.9.0`: `linux-x64` and `darwin-arm64`. No matching binary yet? The script
+falls back to honest build-from-source steps instead of guessing. Full
+details: **[docs/install.md](docs/install.md)**.
+
+`agnosgram` is not published to npm yet - per the Milestone 6 decision (see
+[ROADMAP.md](ROADMAP.md)), prebuilt binaries are the canonical distribution
+and npm stays off the user-facing install path for now, so `npm i -g
+agnosgram` will 404 until that changes. Building from source or using npm
+(once published) both require Node ≥ 20; the binary path does not.
+
+### Read-only global npm prefix (nix, managed machines)
+
+If your npm global prefix is read-only (nix-managed Node, some managed
+corporate machines), `npm install -g` fails against that prefix and npm's
+error tells you to run as root - misleading, since the real problem is the
+read-only prefix, not permissions `sudo` can fix. Two options that actually
+work:
+
+- Use `install.sh` above - it never touches the npm global prefix.
+- Point npm at a writable prefix you own, once `agnosgram` is on npm:
+  `NPM_CONFIG_PREFIX=$HOME/.npm-global npm i -g agnosgram`, then add
+  `export PATH="$HOME/.npm-global/bin:$PATH"` to your shell profile.
 
 ## Quick start
 

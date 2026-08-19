@@ -2,8 +2,9 @@
 # Install `agnosgram` without a local npm install.
 #
 # Primary path: fetch the single-file binary for this platform from the
-# latest GitHub release and place it on PATH. Falls back to `npm install -g`
-# when Node is available and no matching binary asset exists yet.
+# latest GitHub release and place it on PATH. Falls back to build-from-source
+# instructions when no matching binary asset exists yet - agnosgram is not
+# published to npm, so an npm install fallback would just 404.
 #
 # Built platforms (keep in sync with .github/workflows/release.yml's
 # build-binaries matrix - update both together when adding a platform):
@@ -61,15 +62,18 @@ install_binary() {
   return 0
 }
 
-install_via_npm() {
-  if ! command -v npm >/dev/null 2>&1; then
-    echo "No matching binary release (built for: ${BUILT_PLATFORMS}) and no npm found." >&2
-    echo "Install Node >= 20, then: npm install -g agnosgram" >&2
-    exit 1
-  fi
-  echo "No matching binary release yet (built for: ${BUILT_PLATFORMS}) - trying npm instead." >&2
-  echo "Note: agnosgram is not published to npm yet - this will fail (404) until it is." >&2
-  npm install -g agnosgram
+print_source_fallback() {
+  # agnosgram is not published to npm - an `npm install -g agnosgram` fallback
+  # here would only ever 404, so give honest build-from-source steps instead.
+  echo "No matching binary release (built for: ${BUILT_PLATFORMS})." >&2
+  echo "agnosgram is not on npm yet, so npm install -g agnosgram cannot work." >&2
+  echo "Build from source instead (needs Node >= 20):" >&2
+  echo "  git clone https://github.com/${REPO}.git" >&2
+  echo "  cd ${BIN_NAME}" >&2
+  echo "  npm ci" >&2
+  echo "  npm run build" >&2
+  echo "  node dist/cli.js --help   # run directly, or:" >&2
+  echo "  npm link                  # put '${BIN_NAME}' on PATH instead" >&2
 }
 
 main() {
@@ -78,13 +82,14 @@ main() {
   cpu="$(arch)"
 
   if [ "$platform" = "unsupported" ] || [ "$cpu" = "unsupported" ]; then
-    echo "Unrecognized platform ($(uname -s) $(uname -m); built for: ${BUILT_PLATFORMS}) - falling back to npm." >&2
-    install_via_npm
-    return
+    echo "Unrecognized platform ($(uname -s) $(uname -m); built for: ${BUILT_PLATFORMS})." >&2
+    print_source_fallback
+    exit 1
   fi
 
   if ! install_binary "$platform" "$cpu"; then
-    install_via_npm
+    print_source_fallback
+    exit 1
   fi
 }
 
