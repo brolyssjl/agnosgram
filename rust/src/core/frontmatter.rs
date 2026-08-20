@@ -120,15 +120,11 @@ fn is_yamlish_line(line: &str) -> bool {
     if line.is_empty() {
         return false;
     }
-    // `\s+\S.*` : starts with whitespace, then a non-whitespace char, then anything.
-    let chars = line.chars();
-    let first = chars.clone().next().unwrap();
+    // `\s+\S.*` : any run of leading whitespace followed by a non-whitespace
+    // char qualifies (e.g. a two-space-indented block-scalar continuation).
+    let first = line.chars().next().unwrap();
     if first.is_whitespace() {
-        let rest: String = chars.skip(1).collect();
-        if !rest.is_empty() && !rest.chars().next().unwrap().is_whitespace() {
-            return true;
-        }
-        return false;
+        return !line.trim_start().is_empty();
     }
     // `-\s.*` or `-`
     if line == "-" {
@@ -541,5 +537,19 @@ mod tests {
         let v = validate_record(&recs[0], &KNOWN_TYPES);
         let codes: Vec<&str> = v.issues.iter().map(|i| i.code.as_str()).collect();
         assert!(!codes.contains(&"body.empty"));
+    }
+
+    #[test]
+    fn multi_space_indented_continuation_lines_are_yamlish() {
+        assert!(is_yamlish_line(" one-space indent"));
+        assert!(is_yamlish_line("  journal/2026-07.md"));
+        assert!(is_yamlish_line("\t\ttab-indented"));
+        assert!(!is_yamlish_line("   "));
+        assert!(!is_yamlish_line(""));
+        // A frontmatter block holding a rejected `|` block scalar must still be
+        // recognized as a record so validation can report frontmatter.parse.
+        let doc = "---\nid: LES-009\ntype: pitfall\nsource: |\n  journal/2026-07.md\n---\nbody\n";
+        let recs = extract_records(doc);
+        assert_eq!(recs.len(), 1);
     }
 }
