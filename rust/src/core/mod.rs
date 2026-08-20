@@ -21,4 +21,5 @@ pub mod store;
 pub mod templates;
 pub mod tokens;
 pub mod toon;
+pub mod write_file;
 pub mod yaml;

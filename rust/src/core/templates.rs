@@ -12,6 +12,9 @@ pub fn journal_month_now() -> String {
     journal_month()
 }
 
+// Continuation lines inside these literals: a trailing `\` strips the newline
+// AND all leading whitespace on the next source line, so indented template
+// lines must spell their indent as `\x20` escapes to survive.
 pub fn memory_md(date: &str) -> String {
     let month = &date[..7];
     format!(
@@ -25,9 +28,9 @@ the repo, and is reviewed in PRs like any other code.\n\
 2. Read `lessons/pitfalls.md` and `lessons/conventions.md` (always).\n\
 3. Read `context/*` only for areas you will touch.\n\
 4. Read `decisions/` only when about to change something architectural -\n\
-   check for an existing decision before proposing a change to settled matters.\n\
+\x20\x20\x20check for an existing decision before proposing a change to settled matters.\n\
 5. Before ending a session, append a journal entry with `agnosgram log`\n\
-   (or by hand into `journal/{month}.md`).\n\
+\x20\x20\x20(or by hand into `journal/{month}.md`).\n\
 \n\
 Specs say what the system should be; Agnosgram says what we learned making it.\n\
 A fact belongs in exactly one place; the other side links to it.\n\
