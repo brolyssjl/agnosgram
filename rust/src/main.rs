@@ -10,6 +10,8 @@
 // carries its own `#[cfg(test)]` coverage, exercised by `cargo test`.
 #![allow(dead_code)]
 
+mod adapters;
+mod claude_hooks;
 mod commands;
 mod core;
 
