@@ -99,11 +99,11 @@ The on-disk format contract (DEC-0002) is unchanged and non-negotiable._
 - [x] Surface freeze declared: CLI commands/flags/outputs documented as the
       port contract (decision record)
 
-### Round 2 - the port
-- [ ] Rust crate in-repo (one crate per tool; duplication with gate accepted):
+### Round 2 - the port ✅ done
+- [x] Rust crate in-repo (one crate per tool; duplication with gate accepted):
       identical CLI surface, zero behavior drift, conformance suite green
       against the Rust binary on linux-x64 + darwin-arm64
-- [ ] Release pipeline builds Rust binaries on tag; `install.sh` unchanged
+- [x] Release pipeline builds Rust binaries on tag; `install.sh` unchanged
       (already downloads binaries); `1.0.0-rc` tags from here
 
 ### Round 3 - `1.0.0` gate (all required)
