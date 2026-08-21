@@ -1,0 +1,16 @@
+[package]
+name = "agnosgram"
+version = "0.11.0"
+edition = "2021"
+description = "agent-agnostic, per-project memory (plain Markdown in your repo)"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "agnosgram"
+path = "src/main.rs"
+
+[dependencies]
+
+[profile.release]
+opt-level = 3

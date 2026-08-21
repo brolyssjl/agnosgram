@@ -66,6 +66,42 @@ surface; it's kept, with its own unit test, only because `node:util`'s
 one. The Rust port's argv parser does not need to implement short-option
 handling to match this surface.
 
+## Rust implementation
+
+Starting with Milestone 6, the frozen CLI surface also has a from-scratch
+Rust port living in `rust/` (crate `agnosgram`, `rust/Cargo.toml`, edition
+2021, bin target `agnosgram`). See `docs/rust-port.md` for the full plan and
+the module layout; the short version:
+
+- **Zero dependencies, std only.** No external crates, mirroring the
+  TypeScript implementation's zero-runtime-dependency policy. JSON, YAML,
+  TOON, and frontmatter are all hand-rolled ports of the `core/*.ts`
+  equivalents; local time uses a direct `extern "C"` binding to `localtime_r`
+  instead of a crate. Do not add a `[dependencies]` entry without discussing it first
+  - it breaks a deliberate reviewability property.
+- **The CLI surface is frozen** (Milestone 6 owner decision, DEC-0004): the
+  TypeScript implementation is the reference and the conformance suite
+  (below) is the normative definition of correct behavior. The Rust port
+  must match it byte-for-byte - stdout/stderr, exit codes, on-disk effects -
+  not just "behave similarly."
+
+Dev loop, from repo root:
+
+```bash
+cargo fmt --check --manifest-path rust/Cargo.toml
+cargo clippy --manifest-path rust/Cargo.toml -- -D warnings
+cargo test --manifest-path rust/Cargo.toml
+cargo build --release --manifest-path rust/Cargo.toml
+AGNOSGRAM_BIN="$PWD/rust/target/release/agnosgram" npm run conformance
+```
+
+All five must pass before opening a PR that touches `rust/`. Any change to
+the CLI surface (a new command, flag, output string, or on-disk effect) must
+land with a corresponding update to the conformance suite
+(`*.conformance.test.ts`, see "Conformance mode" above) in the **same**
+change, whichever implementation you touched first - the suite is what keeps
+the two implementations from silently drifting apart.
+
 ## Releases
 
 Releases are tag-driven. The `Release` workflow runs on any `v*.*.*` tag: it builds,

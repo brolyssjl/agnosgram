@@ -68,43 +68,50 @@ npm link                  # put `agnosgram` on PATH instead
 Requires Node >= 20. This is exactly what `install.sh` tells you to do when
 there is no matching binary asset for your platform.
 
-## Building the (single-file) binary yourself
+## Building a binary yourself
+
+The canonical way to build a single-file binary is now the Rust crate in
+`rust/` (see `docs/rust-port.md`):
 
 ```bash
-npm run build           # tsc -> dist/
-npm run build:binary    # -> dist-bin/agnosgram
+cargo build --release --manifest-path rust/Cargo.toml
+# -> rust/target/release/agnosgram
 ```
 
-`build:binary` (`scripts/buildBinary.mjs`) prefers `bun build --compile` when
-`bun` is on `PATH` - it bundles our zero-runtime-deps ESM output directly, no
-extra steps. Without `bun`, it falls back to Node's built-in Single Executable
-Applications (SEA) support: it first bundles `dist/`'s multi-file ESM graph into
-one CJS file with `esbuild` (a devDependency used only by this script - it is
-never shipped or used at runtime, so it doesn't touch the zero-runtime-dependency
-rule), then injects that bundle into a copy of the running `node` binary via
-`postject` (installed ad hoc: `npm install --no-save postject` - kept out of
-`package.json` on purpose). On macOS this also strips and re-applies an ad hoc
-code signature, since `postject` can't modify a signed binary in place. The
-script always logs which engine it picked; set `AGNOSGRAM_BINARY_ENGINE=bun` or
-`=sea` to force one instead of PATH-sniffing for `bun` (useful in CI, or to
-reproduce a report against a specific engine).
+Zero external crates (std only, same zero-runtime-dependency policy as the
+TypeScript implementation), no `bun` or Node SEA tooling required. The
+TypeScript implementation still works too, and stays the reference until the
+Rust port replaces it (`docs/rust-port.md`, `.agnosgram/decisions/0004-surface-freeze.md`):
+
+```bash
+npm run build            # tsc -> dist/
+node dist/cli.js --help  # run directly
+```
 
 Verify a fresh build actually works end to end:
 
 ```bash
 mkdir /tmp/agnosgram-smoke && cd /tmp/agnosgram-smoke && git init -q
-/path/to/dist-bin/agnosgram init
-/path/to/dist-bin/agnosgram pack
-/path/to/dist-bin/agnosgram doctor
+/path/to/agnosgram init
+/path/to/agnosgram pack
+/path/to/agnosgram doctor
 ```
 
 ## Releases
 
-Pushing a `v*.*.*` tag runs `.github/workflows/release.yml`: a `test` job runs
-the build/test/bench gate (the one hard requirement), in parallel with a
-`build-binaries` job that builds `agnosgram-linux-x64` and `agnosgram-darwin-arm64`
-(via the same `build:binary` script, one per matrix OS). Binaries are
-best-effort - a bun-setup outage or SEA failure on one platform attaches
-whatever succeeded rather than blocking the release or `npm publish`. `npm
-publish` stays a separate, owner-gated job (`NPM_PUBLISH=true` repo variable +
-`NPM_TOKEN` secret) - the release workflow never publishes on its own.
+Pushing a `v*.*.*` tag runs `.github/workflows/release.yml`:
+
+- A `test` job first checks that the tag, `package.json` version, and
+  `rust/Cargo.toml` version all agree, then runs the build/test/bench gate.
+- A `conformance` job builds the Rust crate's release binary and runs the
+  full conformance suite (`npm run conformance`) against it - a binary that
+  fails its own surface contract never reaches a release.
+- A `build-binaries` job builds `agnosgram-linux-x64` and
+  `agnosgram-darwin-arm64` with `cargo build --release`, one per matrix OS.
+  This job is best-effort - a Rust toolchain setup outage on one runner
+  attaches whatever succeeded rather than blocking the release, since `test`
+  and `conformance` are the hard gates.
+
+`npm publish` stays a separate, owner-gated job (`NPM_PUBLISH=true` repo
+variable + `NPM_TOKEN` secret) - the release workflow never publishes on its
+own.

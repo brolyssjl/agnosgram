@@ -4,6 +4,7 @@ dist-bin/
 sea-config.json
 *.tsbuildinfo
 .DS_Store
+rust/target/
 
 # Internal design docs — not for the public repo
 kickoff-agnosgram.md
