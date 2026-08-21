@@ -106,14 +106,21 @@ The on-disk format contract (DEC-0002) is unchanged and non-negotiable._
 - [x] Release pipeline builds Rust binaries on tag; `install.sh` unchanged
       (already downloads binaries); `1.0.0-rc` tags from here
 
-### Round 3 - `1.0.0` gate (all required)
+### Round 3 - post-`1.0.0` hardening
+
+_Owner decision (2026-08-21): `1.0.0` ships directly from the Round 2 port -
+no rc cycle. The conformance suite (104/104 on linux-x64 + darwin-arm64) and
+the release pipeline's hard conformance gate stand in for the rc soak as the
+`1.0.0` evidence; the Rust binary is the canonical distribution from `1.0.0`.
+The remaining items below are still wanted, but as post-`1.0.0` hardening
+rather than release gates._
+
+- [x] `1.0.0`: Rust binary is the canonical distribution; TS implementation
+      demoted to reference (retirement decided post-hardening)
 - [ ] Upgrade story: version-stamped managed blocks, `doctor` warns on
       stale artifacts, `adapt --refresh` shows a diff before updating
-- [ ] Soak: the real host projects run the Rust binaries daily through at
-      least one rc cycle
+- [ ] Soak: the real host projects run the Rust binaries daily
 - [ ] Docs site + case study (the 2026-07/08 constructflow soak writeup)
-- [ ] `1.0.0`: Rust binary is the canonical distribution; TS implementation
-      retired or demoted to reference
 
 ## Deferred (not scheduled)
 Semantic search / embeddings · per-user private memory (`local/`) · monorepo nested

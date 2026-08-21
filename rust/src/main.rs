@@ -18,10 +18,11 @@ mod core;
 use core::output::{warn, UserError};
 
 /// `cli.ts` reads this from `package.json` at runtime; there is no
-/// `package.json` next to an installed binary, so it is a constant here.
-/// Bump this on every release, in lockstep with `package.json`'s `version`
-/// and `rust/Cargo.toml`'s `version`.
-const VERSION: &str = "0.11.0";
+/// `package.json` next to an installed binary, so it is compiled in from
+/// `rust/Cargo.toml`'s `version` - one fewer place to bump per release.
+/// The release workflow's version guard keeps it in lockstep with the tag
+/// and `package.json`.
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Byte-for-byte copy of `src/cli.ts`'s `HELP` template literal, with
 /// `${ADAPTER_KEYS.join("|")}` already resolved to its frozen value
