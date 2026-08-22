@@ -43,18 +43,9 @@ cargo build --release --manifest-path rust/Cargo.toml
 # -> rust/target/release/agnosgram
 ```
 
-Zero external crates (std only, same zero-runtime-dependency policy as the
-TypeScript implementation) - needs only a stable Rust toolchain, no `bun` or
-Node SEA tooling. This is exactly what `install.sh` tells you to do when
-there is no matching binary asset for your platform.
-
-Contributors working on the TypeScript reference implementation still need
-Node >= 20 (`docs/rust-port.md`, `.agnosgram/decisions/0004-surface-freeze.md`):
-
-```bash
-npm run build            # tsc -> dist/
-node dist/cli.js --help  # run directly
-```
+Zero external crates (std only) - needs only a stable Rust toolchain, no
+other tooling. This is exactly what `install.sh` tells you to do when there
+is no matching binary asset for your platform.
 
 Verify a fresh build actually works end to end:
 
@@ -69,17 +60,15 @@ mkdir /tmp/agnosgram-smoke && cd /tmp/agnosgram-smoke && git init -q
 
 Pushing a `v*.*.*` tag runs `.github/workflows/release.yml`:
 
-- A `test` job first checks that the tag, `package.json` version, and
-  `rust/Cargo.toml` version all agree, then runs the build/test/bench gate.
-- A `conformance` job builds the Rust crate's release binary and runs the
-  full conformance suite (`npm run conformance`) against it - a binary that
-  fails its own surface contract never reaches a release.
-- A `build-binaries` job builds `agnosgram-linux-x64` and
-  `agnosgram-darwin-arm64` with `cargo build --release`, one per matrix OS.
-  This job is best-effort - a Rust toolchain setup outage on one runner
-  attaches whatever succeeded rather than blocking the release, since `test`
-  and `conformance` are the hard gates.
+- A `version-guard` job checks that the tag and `rust/Cargo.toml` version agree.
+- A `build-and-verify` job builds `agnosgram-linux-x64` and
+  `agnosgram-darwin-arm64` with `cargo build --release`, one per matrix OS,
+  then runs the full test suite (unit + conformance + token benchmark gates)
+  against that exact release binary on that platform - a binary that fails
+  its own surface contract never reaches a release. Neither the build nor
+  the test run is best-effort: either platform failing fails the release.
+- A `release` job fails outright if zero assets were produced, otherwise
+  publishes the GitHub release.
 
-`npm publish` stays a separate, owner-gated job (`NPM_PUBLISH=true` repo
-variable + `NPM_TOKEN` secret) - the release workflow never publishes on its
-own.
+There is no npm publish path - prebuilt binaries are the permanent,
+only user-facing install story (Milestone 6 owner decision).

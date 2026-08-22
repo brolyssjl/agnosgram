@@ -116,7 +116,9 @@ The remaining items below are still wanted, but as post-`1.0.0` hardening
 rather than release gates._
 
 - [x] `1.0.0`: Rust binary is the canonical distribution; TS implementation
-      demoted to reference (retirement decided post-hardening)
+      retired 2026-08-22 (owner decision - implementation, unit/conformance
+      tests, and the npm toolchain removed; conformance suite ported to
+      `rust/tests/`)
 - [ ] Upgrade story: version-stamped managed blocks, `doctor` warns on
       stale artifacts, `adapt --refresh` shows a diff before updating
 - [ ] Soak: the real host projects run the Rust binaries daily

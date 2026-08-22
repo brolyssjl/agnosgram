@@ -18,10 +18,9 @@ API keys, no network after install. Any agent that can read a file can use it.
 > reflexive loop (`feedback` / `reflect`, a strictly separate `meta/` namespace),
 > and the Rust port. **The on-disk `.agnosgram/` format is frozen** at format
 > version 1 - safe to adopt on a real, even legacy, project - and the CLI surface
-> is frozen as the conformance-checked port contract (DEC-0004). **The Rust
-> binary (`rust/`) is now the canonical distribution**; the TypeScript
-> implementation stays in-repo as the reference the conformance suite is written
-> against. See [ROADMAP.md](ROADMAP.md) and the
+> is frozen as the conformance-checked contract (DEC-0004), pinned by
+> `rust/tests/`. **Rust is the only implementation** - the TypeScript reference
+> it was ported from was retired 2026-08-22. See [ROADMAP.md](ROADMAP.md) and the
 > [schema reference](docs/schema-reference.md).
 
 ## Install
@@ -56,9 +55,7 @@ cargo build --release --manifest-path rust/Cargo.toml
 # -> rust/target/release/agnosgram
 ```
 
-Contributors working on the TypeScript reference implementation still need
-Node >= 20: `npm run build && node dist/cli.js --help`. Full details on both
-paths: **[docs/install.md](docs/install.md)**.
+Full details: **[docs/install.md](docs/install.md)**.
 
 ## Quick start
 
@@ -161,11 +158,13 @@ coexistence. **`0.10.0`** was Milestone 5, the reflexive loop:
 `feedback` captures tool friction into a separate, additive `meta/` namespace;
 `reflect` turns it into proposals - the tool proposes, a human decides.
 **`0.11.0`** opened Milestone 6: the CLI surface frozen as the Rust port
-contract (DEC-0004), enforced by the conformance suite (`npm run conformance`
-against `$AGNOSGRAM_BIN`). **`1.0.0`** ships the Rust port itself, straight
-from the merged Round 2 conformance evidence (104/104 on `linux-x64` and
-`darwin-arm64`) with no rc cycle - the Rust binary is now the canonical
-distribution, and the TypeScript implementation remains in-repo as reference.
+contract (DEC-0004), enforced by a conformance suite run against
+`$AGNOSGRAM_BIN`. **`1.0.0`** ships the Rust port itself, straight from the
+merged Round 2 conformance evidence (104/104 on `linux-x64` and
+`darwin-arm64`) with no rc cycle - the Rust binary became the canonical
+distribution, with the TypeScript implementation staying in-repo as
+reference. That reference was retired 2026-08-22, once its conformance
+suite had been ported to `rust/tests/`: Rust is now the only implementation.
 
 ## How it compares
 
@@ -193,13 +192,11 @@ not a per-user database and not a single-agent file.
 ## Development
 
 ```bash
-npm run build     # tsc -> dist/
-npm test          # compile + node --test
-npm run bench     # Tier-1 token benchmark (add --check to gate in CI)
-npm run tier2     # Tier-2 end-to-end token eval (add --check to gate in CI)
+cargo build --release --manifest-path rust/Cargo.toml
+cargo test --manifest-path rust/Cargo.toml   # unit + conformance + token benchmark gates
 ```
 
-For the canonical (Rust) implementation development loop, see the [Rust implementation section in CONTRIBUTING.md](CONTRIBUTING.md#rust-implementation).
+Full dev loop (fmt, clippy, and what each test tier covers): [Rust implementation section in CONTRIBUTING.md](CONTRIBUTING.md#rust-implementation).
 
 ## License
 

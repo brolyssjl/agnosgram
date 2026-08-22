@@ -236,6 +236,50 @@ pub fn stringify_pretty(value: &Value) -> String {
     out
 }
 
+/// `JSON.stringify(value)` - no whitespace at all, unlike `stringify_pretty`
+/// with `indent: 0` (which would still separate elements with newlines).
+/// Unused by the CLI binary itself (which only ever pretty-prints); exists
+/// for `rust/tests/bench_tokens.rs`, which needs it to reproduce
+/// `JSON.stringify(v)` compact-baseline token counts.
+#[allow(dead_code)]
+pub fn stringify_compact(value: &Value) -> String {
+    let mut out = String::new();
+    write_compact(value, &mut out);
+    out
+}
+
+fn write_compact(value: &Value, out: &mut String) {
+    match value {
+        Value::Null => out.push_str("null"),
+        Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
+        Value::Int(n) => out.push_str(&n.to_string()),
+        Value::Float(f) => out.push_str(&format_float(*f)),
+        Value::String(s) => escape_json_string(s, out),
+        Value::Array(items) => {
+            out.push('[');
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                write_compact(item, out);
+            }
+            out.push(']');
+        }
+        Value::Object(entries) => {
+            out.push('{');
+            for (i, (key, val)) in entries.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                escape_json_string(key, out);
+                out.push(':');
+                write_compact(val, out);
+            }
+            out.push('}');
+        }
+    }
+}
+
 /// A `JSON.parse` failure. Message text is descriptive, not a byte-exact port
 /// of V8's parser errors - the plan requires only that parsing *accept* what
 /// `JSON.parse` accepts for the shapes this CLI reads.
