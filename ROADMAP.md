@@ -131,7 +131,7 @@ rather than release gates._
 ## Fixes & improvements
 _Open items from the 2026-08-22 audit + remediation (PRs gate#11/#12,
 agnosgram#14, all merged) that aren't tied to a milestone above._
-- [ ] Cut `1.0.1`: `1.0.0` predates SHA256SUMS, so checksum-verified
+- [x] Cut `1.0.1`: `1.0.0` predates SHA256SUMS, so checksum-verified
       installs only become real once the first post-#14 tag publishes it.
       Small, do soon. (audit SEC-02 tail)
 - [ ] Wire the injection lint into the `pack` path: run the existing
