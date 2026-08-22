@@ -1,11 +1,15 @@
 # Rust port plan (Milestone 6 Round 2)
 
 Working plan for porting the frozen CLI surface (DEC-0004) to Rust. This is a
-contributor document; the user-facing contract is unchanged. Delete or archive
-once `1.0.0` ships and the TypeScript implementation is retired.
+contributor document; the user-facing contract is unchanged.
 
-**Status:** All waves landed 2026-08-20, and 1.0.0 shipped 2026-08-21 with the
-Rust binary as canonical. This document remains as the port's design record.
+**Status: archived.** All waves landed 2026-08-20, 1.0.0 shipped 2026-08-21
+with the Rust binary as canonical, and the TypeScript implementation this
+plan ported *from* was retired 2026-08-22 - its own archive trigger above
+has now fully fired. Everything below is history: the plan and the TS
+source it names no longer exist to compare against. The frozen surface's
+normative definition now lives in `rust/tests/*_conformance.rs`; see
+`CONTRIBUTING.md`.
 
 ## Goal and definition of done
 

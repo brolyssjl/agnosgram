@@ -11,131 +11,122 @@ All changes land through pull requests.
    - `chore/…` tooling, CI, deps
    - `docs/…` docs / README / roadmap
 2. **Make the change**, keep it scoped to one roadmap item where possible.
-3. **Before opening the PR:** `npm test` and `node bench/bench.mjs --check` must pass.
+3. **Before opening the PR:** `cargo test --manifest-path rust/Cargo.toml` must pass
+   (unit tests, the conformance suite, and the token benchmark gates all run under it).
 4. **Open a PR.** In the description, tick or reference the [ROADMAP.md](ROADMAP.md)
-   item it advances. CI (build + test + bench gate, Node 20 & 22) must be green.
+   item it advances. CI (fmt + clippy + build + test, ubuntu & macos) must be green.
 5. **Merge** into `main` (squash preferred). Then update the roadmap checkbox.
 
 ## Conformance mode
 
-Starting at `0.11.0`, the CLI surface is frozen ahead of a planned Rust port
-(Milestone 6): the TypeScript implementation is the reference, and the test
-suite that exercises the CLI surface is written to be **binary-agnostic**, so
-the same tests can later validate a from-scratch reimplementation.
+The CLI surface is frozen (Milestone 6 owner decision, DEC-0004): stdout,
+stderr, exit codes, and on-disk effects are all part of the contract, not
+just "current behavior." `rust/tests/*_conformance.rs` is the **behavioral
+contract of the frozen CLI surface** - it is the normative definition of
+correct behavior, not just a regression suite.
 
-Two kinds of test live side by side under `src/`:
+Two kinds of test live side by side in the Rust crate:
 
-- **`*.test.ts`** - unit tests of internals (pure functions, the `doctor`
-  findings engine, YAML/TOON encoders, etc). These import command modules
-  directly and run in-process. They are not part of conformance, since they
+- **Unit tests** (`#[cfg(test)] mod tests` inside `rust/src/**/*.rs`) - test
+  internals (pure functions, the `doctor` findings engine, YAML/TOON
+  encoders, etc) in-process. They are not part of conformance, since they
   test implementation, not surface.
-- **`*.conformance.test.ts`** - tests of the CLI surface itself: argv
-  parsing, stdout/stderr, exit codes, and on-disk effects. These never import
-  command internals - they spawn a binary via the shared harness in
-  `src/conformance/harness.ts` (`runCli(args, { cwd, input?, env? })`) and
-  assert only on what a real invocation produces.
+- **`rust/tests/*_conformance.rs`** - integration tests of the CLI surface
+  itself: argv parsing, stdout/stderr, exit codes, and on-disk effects.
+  These never call command internals - they spawn a binary via the shared
+  harness in `rust/tests/common/mod.rs` (`run_cli(args, cwd)`) and assert
+  only on what a real invocation produces. See `rust/tests/CONFORMANCE_MAP.md`
+  for how each case traces back to the frozen surface it pins.
 
-`npm test` runs everything. `npm run conformance` runs only the
-`*.conformance.test.ts` subset, against whichever binary `AGNOSGRAM_BIN`
-points at:
+`cargo test --manifest-path rust/Cargo.toml` runs everything (unit +
+conformance + the token benchmark gates). The conformance tests default to
+the binary this checkout just built (via Cargo's `CARGO_BIN_EXE_agnosgram`),
+but honor `AGNOSGRAM_BIN` as a runtime override to validate an installed
+release or a different build instead:
 
 ```bash
-# Default: build this checkout, run its dist/cli.js
-npm run conformance
+# Default: builds and tests this checkout's own binary
+cargo test --manifest-path rust/Cargo.toml
 
-# Validate an installed release, or a from-scratch reimplementation
-AGNOSGRAM_BIN=$(command -v agnosgram) npm run conformance
-AGNOSGRAM_BIN="/path/to/agnosgram-rs" npm run conformance
+# Validate an installed release, or a differently-built binary
+AGNOSGRAM_BIN=$(command -v agnosgram) cargo test --manifest-path rust/Cargo.toml
 ```
 
 `AGNOSGRAM_BIN` is either a directly-executable binary or a `command arg...`
-string (split on whitespace); it defaults to `node dist/cli.js` from this
-checkout. When adding a new command or flag: if the behavior is reachable
-only through the CLI (argv parsing, formatted output, exit codes, file
-side-effects), it belongs in a `*.conformance.test.ts`; internals that are
-also unit-testable in isolation (and aren't already covered by a conformance
-test) can additionally get a plain `*.test.ts`. A `*.conformance.test.ts`
-file must only ever import the harness and Node builtins - never a command
-or `core/` module - or it stops being binary-agnostic.
+string (split on whitespace). When adding a new command or flag: if the
+behavior is reachable only through the CLI (argv parsing, formatted output,
+exit codes, file side-effects), it belongs in a `*_conformance.rs` test;
+internals that are also unit-testable in isolation (and aren't already
+covered by a conformance test) can additionally get a unit test next to the
+code. A `*_conformance.rs` file must only ever import the harness and std -
+never a `core`/`commands` module - or it stops being a black-box surface
+check.
 
 The frozen surface has **no short options** (no `-b` for `--budget` or
-similar) on any command - every flag is long-form only. `parseCliArgs`'s
-short-option glue path (`src/core/args.ts`) is dead code against the real
-surface; it's kept, with its own unit test, only because `node:util`'s
-`parseArgs` supports short aliases generically and a future flag could add
-one. The Rust port's argv parser does not need to implement short-option
-handling to match this surface.
+similar) on any command - every flag is long-form only.
 
 ## Rust implementation
 
-Starting with Milestone 6, the frozen CLI surface also has a from-scratch
-Rust port living in `rust/` (crate `agnosgram`, `rust/Cargo.toml`, edition
-2021, bin target `agnosgram`). See `docs/rust-port.md` for the full plan and
-the module layout; the short version:
+Agnosgram is a single Rust crate living in `rust/` (crate `agnosgram`,
+`rust/Cargo.toml`, edition 2021, bin target `agnosgram`). See
+`docs/archive/rust-port.md` for the original port's design record
+(historical - the TypeScript implementation it was ported from was retired
+2026-08-22); the current-state short version:
 
-- **Zero dependencies, std only.** No external crates, mirroring the
-  TypeScript implementation's zero-runtime-dependency policy. JSON, YAML,
-  TOON, and frontmatter are all hand-rolled ports of the `core/*.ts`
-  equivalents; local time uses a direct `extern "C"` binding to `localtime_r`
-  instead of a crate. Do not add a `[dependencies]` entry without discussing it first
-  - it breaks a deliberate reviewability property.
-- **The CLI surface is frozen** (Milestone 6 owner decision, DEC-0004): the
-  TypeScript implementation is the reference and the conformance suite
-  (below) is the normative definition of correct behavior. The Rust port
-  must match it byte-for-byte - stdout/stderr, exit codes, on-disk effects -
-  not just "behave similarly."
+- **Zero dependencies, std only.** No external crates - a deliberate
+  reviewability property. JSON, YAML, TOON, and frontmatter are all
+  hand-rolled; local time uses a direct `extern "C"` binding to
+  `localtime_r` instead of a crate. `rust/tests/` integration tests hold to
+  the same policy: std only, no dev-dependencies. Do not add a
+  `[dependencies]` or `[dev-dependencies]` entry without discussing it first.
+- **The CLI surface is frozen** (Milestone 6 owner decision, DEC-0004):
+  `rust/tests/*_conformance.rs` is the normative definition of correct
+  behavior. Any change to stdout/stderr, exit codes, or on-disk effects is a
+  surface change and needs a deliberate decision, not an incidental one.
 
 Dev loop, from repo root:
 
 ```bash
 cargo fmt --check --manifest-path rust/Cargo.toml
-cargo clippy --manifest-path rust/Cargo.toml -- -D warnings
+cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path rust/Cargo.toml
 cargo build --release --manifest-path rust/Cargo.toml
-AGNOSGRAM_BIN="$PWD/rust/target/release/agnosgram" npm run conformance
 ```
 
-All five must pass before opening a PR that touches `rust/`. Any change to
-the CLI surface (a new command, flag, output string, or on-disk effect) must
-land with a corresponding update to the conformance suite
-(`*.conformance.test.ts`, see "Conformance mode" above) in the **same**
-change, whichever implementation you touched first - the suite is what keeps
-the two implementations from silently drifting apart.
+All four must pass before opening a PR. Any change to the CLI surface (a new
+command, flag, output string, or on-disk effect) must land with a
+corresponding update to `rust/tests/*_conformance.rs` in the **same**
+change - the suite is what keeps the shipped binary from silently drifting
+off its own documented contract.
 
 ## Releases
 
-Releases are tag-driven. The `Release` workflow runs on any `v*.*.*` tag: it builds,
-tests, runs the bench gate, and creates a GitHub release with auto-generated notes.
+Releases are tag-driven. The `Release` workflow runs on any `v*.*.*` tag: it
+verifies the tag matches `rust/Cargo.toml`, builds the release binary for
+each platform and runs the full test suite (unit + conformance + token
+benchmark gates) against that exact binary, then creates a GitHub release
+with auto-generated notes. There is no npm publish path - prebuilt binaries
+are the permanent, only user-facing install story (Milestone 6 owner
+decision); a `publish-npm` job existed behind a disabled flag but was
+deleted 2026-08-22 during TS retirement rather than kept dormant.
 
 To cut a release:
 
-1. On a branch, bump `version` in `package.json` and `rust/Cargo.toml` in lockstep,
-   and tick the milestone's items in `ROADMAP.md`. Open + merge the PR.
+1. On a branch, bump `version` in `rust/Cargo.toml` and tick the milestone's
+   items in `ROADMAP.md`. Open + merge the PR.
 2. Tag `main` and push the tag:
    ```bash
    git tag v1.0.1
    git push origin v1.0.1
    ```
-3. The workflow publishes the GitHub release. A dormant `publish-npm` job exists
-   behind `NPM_PUBLISH=true` + `NPM_TOKEN`, but per the Milestone 6 owner
-   decision npm is permanently off the user-facing install path - that job is
-   not enabled and is not part of the release story going forward.
+3. The workflow builds, verifies, and publishes the GitHub release.
 
 ### Release checkpoints (see ROADMAP.md)
 
 | Version | Gate |
 |---|---|
 | `0.1.0` | Milestone 1 (done) - first GitHub release |
-| `0.2.0` | First npm publish |
 | `0.5.0` (beta) | Milestone 2 done + format freeze - first release safe on a real project |
 | `0.8.0` (RC) | Milestone 3 done (`advise`, `pack`/`show`) |
 | `0.9.0` | Milestone 4 done (adapters, Claude Code hooks, install.sh + binaries, SDD coexistence) |
 | `1.0.0` | Milestone 6 Rust port, shipped on its conformance evidence (owner decision 2026-08-21; the rc soak became post-1.0.0 hardening) |
-
-## npm publish (disabled)
-
-The workflow still carries a `publish-npm` job (gated on `NPM_PUBLISH=true` +
-`NPM_TOKEN`), but it is not enabled: the Milestone 6 owner decision makes
-prebuilt binaries the permanent user-facing distribution and takes npm off
-that path for good. Do not enable this job as a way to ship a user-facing
-install method.
