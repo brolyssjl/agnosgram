@@ -8,48 +8,29 @@ permissions:
   contents: write
 
 jobs:
-  test:
+  version-guard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: npm
-      - name: Verify tag / package.json / rust/Cargo.toml versions agree
+      - name: Verify tag / rust/Cargo.toml versions agree
         run: |
           tag_version="${GITHUB_REF_NAME#v}"
-          pkg_version=$(node -p "require('./package.json').version")
           cargo_version=$(grep -m1 '^version' rust/Cargo.toml | sed -E 's/version = "(.*)"/\1/')
-          echo "tag=$tag_version package.json=$pkg_version rust/Cargo.toml=$cargo_version"
-          if [ "$tag_version" != "$pkg_version" ] || [ "$tag_version" != "$cargo_version" ]; then
-            echo "::error::Version mismatch: tag=v$tag_version package.json=$pkg_version rust/Cargo.toml=$cargo_version"
+          echo "tag=$tag_version rust/Cargo.toml=$cargo_version"
+          if [ "$tag_version" != "$cargo_version" ]; then
+            echo "::error::Version mismatch: tag=v$tag_version rust/Cargo.toml=$cargo_version"
             exit 1
           fi
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
-      - run: node bench/bench.mjs --check
 
-  conformance:
-    needs: [test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release --manifest-path rust/Cargo.toml
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: Conformance suite against the linux-x64 release binary
-        run: AGNOSGRAM_BIN="$PWD/rust/target/release/agnosgram" npm run conformance
-
-  build-binaries:
-    continue-on-error: true
+  # Builds the release binary and runs the full test suite - including the
+  # conformance integration tests - against that exact binary, on each
+  # platform that ships one (`cargo test --release` builds the release
+  # profile and points CARGO_BIN_EXE_agnosgram at it, so the conformance
+  # suite exercises the artifact this job then uploads, not a debug build).
+  # No continue-on-error: a failing build or failing conformance run on
+  # either platform must fail the release.
+  build-and-verify:
+    needs: [version-guard]
     strategy:
       fail-fast: false
       matrix:
@@ -63,23 +44,33 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release --manifest-path rust/Cargo.toml
+      - name: cargo test --release (unit + conformance + token benchmark gates, against the shipped binary)
+        run: cargo test --release --manifest-path rust/Cargo.toml
       - run: mv rust/target/release/agnosgram "${{ matrix.asset }}"
+      - name: Verify the asset was actually produced
+        run: test -s "${{ matrix.asset }}"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
           path: ${{ matrix.asset }}
 
   release:
-    needs: [test, conformance, build-binaries]
+    needs: [version-guard, build-and-verify]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           path: release-assets
           merge-multiple: true
+      - name: Verify at least one release asset was produced
+        run: |
+          shopt -s nullglob
+          assets=(release-assets/*)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::No release assets were produced by build-and-verify"
+            exit 1
+          fi
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -87,23 +78,3 @@ jobs:
           shopt -s nullglob
           assets=(release-assets/*)
           gh release create "${{ github.ref_name }}" "${assets[@]}" --generate-notes --verify-tag
-
-  publish-npm:
-    needs: release
-    runs-on: ubuntu-latest
-    # Enable by setting repo variable NPM_PUBLISH=true and secret NPM_TOKEN.
-    if: ${{ vars.NPM_PUBLISH == 'true' }}
-    permissions:
-      contents: read
-      id-token: write # for npm provenance
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          registry-url: https://registry.npmjs.org
-          cache: npm
-      - run: npm ci
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
