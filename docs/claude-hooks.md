@@ -62,7 +62,7 @@ remembering the flag again.
 
 ## Requirements
 
-The hook scripts shell out to the `agnosgram` binary on `PATH` (`npm i -g
-agnosgram`, or the [install script](install.md)). If it isn't installed, the
+The hook scripts shell out to the `agnosgram` binary on `PATH` (see the
+[install script](install.md)). If it isn't installed, the
 `SessionStart` hook still returns valid JSON with a short explanatory
 `additionalContext` instead of failing the session.
