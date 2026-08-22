@@ -14,13 +14,25 @@ fn setup() -> TempDir {
 fn log_appends_an_entry_to_the_current_months_journal() {
     let root = setup();
     let res = run_cli(
-        &["log", "--did", "wired the CLI", "--learned", "parseArgs is enough", "--json"],
+        &[
+            "log",
+            "--did",
+            "wired the CLI",
+            "--learned",
+            "parseArgs is enough",
+            "--json",
+        ],
         root.path(),
     );
     assert_eq!(res.status, 0);
     let month = current_journal_month(root.path());
-    let journal =
-        fs::read_to_string(root.path().join(".agnosgram").join("journal").join(format!("{month}.md"))).unwrap();
+    let journal = fs::read_to_string(
+        root.path()
+            .join(".agnosgram")
+            .join("journal")
+            .join(format!("{month}.md")),
+    )
+    .unwrap();
     assert!(journal.contains("- **Did:** wired the CLI"));
     assert!(journal.contains("- **Learned:** parseArgs is enough"));
 }
@@ -39,7 +51,12 @@ fn fri_001_log_learned_dash_x_stores_the_literal_value_instead_of_crashing() {
     let res = run_cli(&["log", "--learned", "--x", "--json"], root.path());
     assert_eq!(res.status, 0);
     let month = current_journal_month(root.path());
-    let journal =
-        fs::read_to_string(root.path().join(".agnosgram").join("journal").join(format!("{month}.md"))).unwrap();
+    let journal = fs::read_to_string(
+        root.path()
+            .join(".agnosgram")
+            .join("journal")
+            .join(format!("{month}.md")),
+    )
+    .unwrap();
     assert!(journal.contains("- **Learned:** --x"));
 }

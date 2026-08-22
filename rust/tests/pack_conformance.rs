@@ -5,7 +5,11 @@ use common::{init_store, run_cli, write_store_file, Json, TempDir};
 use std::fs;
 
 fn rec(id: &str, kind: &str, scope: &str, extra: &str) -> String {
-    let body = if extra.is_empty() { format!("Body of {id}.") } else { extra.to_string() };
+    let body = if extra.is_empty() {
+        format!("Body of {id}.")
+    } else {
+        extra.to_string()
+    };
     format!(
         "---\nid: {id}\ntype: {kind}\nscope: [{scope}]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\n{body}\n"
     )
@@ -26,7 +30,10 @@ fn setup() -> TempDir {
     write_store_file(
         root.path(),
         "lessons/conventions.md",
-        &format!("# Conventions\n\n{}\n", rec("CON-001", "convention", "core", "")),
+        &format!(
+            "# Conventions\n\n{}\n",
+            rec("CON-001", "convention", "core", "")
+        ),
     );
     write_store_file(
         root.path(),
@@ -89,17 +96,32 @@ fn pack_budget_overrides_config_pack_budget_which_overrides_the_2000_default() {
     fs::write(&config_path, config + "pack_budget: 60\n").unwrap();
 
     let res = run_cli(&["pack", "--json"], root.path());
-    assert_eq!(Json::parse(&res.stdout).get("budget").and_then(Json::as_f64), Some(60.0));
+    assert_eq!(
+        Json::parse(&res.stdout)
+            .get("budget")
+            .and_then(Json::as_f64),
+        Some(60.0)
+    );
 
     let res = run_cli(&["pack", "--json", "--budget", "80"], root.path());
-    assert_eq!(Json::parse(&res.stdout).get("budget").and_then(Json::as_f64), Some(80.0));
+    assert_eq!(
+        Json::parse(&res.stdout)
+            .get("budget")
+            .and_then(Json::as_f64),
+        Some(80.0)
+    );
 }
 
 #[test]
 fn pack_default_budget_is_2000_when_nothing_overrides_it() {
     let root = setup();
     let res = run_cli(&["pack", "--json"], root.path());
-    assert_eq!(Json::parse(&res.stdout).get("budget").and_then(Json::as_f64), Some(2000.0));
+    assert_eq!(
+        Json::parse(&res.stdout)
+            .get("budget")
+            .and_then(Json::as_f64),
+        Some(2000.0)
+    );
 }
 
 #[test]
@@ -118,19 +140,34 @@ fn pack_tokens_stay_within_budget_for_a_normal_case_accounting_for_headings_join
     let many: String = (0..20)
         .map(|i| {
             let id = format!("LES-1{i:02}");
-            rec(&id, "pitfall", "core", &format!("Body of {id}, padded so records cost a realistic number of tokens each."))
+            rec(
+                &id,
+                "pitfall",
+                "core",
+                &format!("Body of {id}, padded so records cost a realistic number of tokens each."),
+            )
         })
         .collect::<Vec<_>>()
         .join("\n");
-    write_store_file(root.path(), "lessons/pitfalls.md", &format!("# Pitfalls\n\n{many}\n"));
+    write_store_file(
+        root.path(),
+        "lessons/pitfalls.md",
+        &format!("# Pitfalls\n\n{many}\n"),
+    );
 
     let res = run_cli(&["pack", "--budget", "200", "--json"], root.path());
     let parsed = Json::parse(&res.stdout);
     let tokens = parsed.get("tokens").and_then(Json::as_f64).unwrap();
     let budget = parsed.get("budget").and_then(Json::as_f64).unwrap();
-    assert!(tokens <= budget, "expected tokens ({tokens}) <= budget ({budget})");
+    assert!(
+        tokens <= budget,
+        "expected tokens ({tokens}) <= budget ({budget})"
+    );
     let omitted = parsed.get("omitted").and_then(Json::as_array).unwrap();
-    assert!(!omitted.is_empty(), "expected this store to overflow a 200-token budget");
+    assert!(
+        !omitted.is_empty(),
+        "expected this store to overflow a 200-token budget"
+    );
 }
 
 #[test]
@@ -139,11 +176,21 @@ fn pack_never_surfaces_meta_friction_md_content_even_when_it_exists() {
     write_store_file(
         root.path(),
         "meta/friction.md",
-        &format!("# Friction\n\n{}\n", rec("FRI-001", "friction", "cli", "This is tool friction, not host-project memory.")),
+        &format!(
+            "# Friction\n\n{}\n",
+            rec(
+                "FRI-001",
+                "friction",
+                "cli",
+                "This is tool friction, not host-project memory."
+            )
+        ),
     );
     let res = run_cli(&["pack", "--json"], root.path());
     assert!(!res.stdout.contains("FRI-001"));
-    assert!(!res.stdout.contains("tool friction, not host-project memory"));
+    assert!(!res
+        .stdout
+        .contains("tool friction, not host-project memory"));
 }
 
 #[test]
@@ -152,15 +199,27 @@ fn packs_omitted_footer_is_capped_and_summarizes_the_rest_instead_of_listing_eve
     let many: String = (0..20)
         .map(|i| {
             let id = format!("LES-2{i:02}");
-            rec(&id, "pitfall", "core", &format!("Body of {id}, padded so records cost a realistic number of tokens each."))
+            rec(
+                &id,
+                "pitfall",
+                "core",
+                &format!("Body of {id}, padded so records cost a realistic number of tokens each."),
+            )
         })
         .collect::<Vec<_>>()
         .join("\n");
-    write_store_file(root.path(), "lessons/pitfalls.md", &format!("# Pitfalls\n\n{many}\n"));
+    write_store_file(
+        root.path(),
+        "lessons/pitfalls.md",
+        &format!("# Pitfalls\n\n{many}\n"),
+    );
 
     let res = run_cli(&["pack", "--budget", "150"], root.path());
     assert!(res.stdout.contains("## Omitted (budget)"));
-    assert!(has_and_n_more_tail(&res.stdout), "expected a capped omitted footer with an '...and N more' tail");
+    assert!(
+        has_and_n_more_tail(&res.stdout),
+        "expected a capped omitted footer with an '...and N more' tail"
+    );
 }
 
 fn has_and_n_more_tail(s: &str) -> bool {
@@ -175,5 +234,7 @@ fn fri_001_pack_budget_dash_1_gives_the_existing_validation_error_not_a_raw_pars
     let root = setup();
     let res = run_cli(&["pack", "--budget", "-1"], root.path());
     assert_ne!(res.status, 0);
-    assert!(res.stderr.contains("--budget must be a positive integer, got \"-1\""));
+    assert!(res
+        .stderr
+        .contains("--budget must be a positive integer, got \"-1\""));
 }

@@ -68,7 +68,10 @@ fn format_json_prints_a_uniform_flat_array() {
     let parsed = Json::parse(&res.stdout);
     let arr = parsed.as_array().expect("expected a JSON array");
     assert_eq!(arr[0].get("id").and_then(Json::as_str), Some("LES-001"));
-    assert_eq!(arr[0].get("scope").and_then(Json::as_str), Some("core,tooling"));
+    assert_eq!(
+        arr[0].get("scope").and_then(Json::as_str),
+        Some("core,tooling")
+    );
 }
 
 #[test]
@@ -124,7 +127,10 @@ fn type_dash_dash_pitfall_dash_dash_is_never_swallowed_as_types_value() {
 #[test]
 fn format_json_on_no_match_prints_an_empty_json_array_to_stdout_and_still_exits_1() {
     let root = setup();
-    let res = run_cli(&["show", "nonexistent-topic", "--format", "json"], root.path());
+    let res = run_cli(
+        &["show", "nonexistent-topic", "--format", "json"],
+        root.path(),
+    );
     assert_eq!(res.status, 1);
     let parsed = Json::parse(&res.stdout);
     assert_eq!(parsed.as_array(), Some(&Vec::new()));
@@ -148,8 +154,14 @@ fn show_never_surfaces_a_meta_friction_entry_even_by_exact_id_or_its_scope_tag()
 #[test]
 fn format_toon_on_no_match_prints_an_empty_toon_array_to_stdout_and_still_exits_1() {
     let root = setup();
-    let res = run_cli(&["show", "nonexistent-topic", "--format", "toon"], root.path());
+    let res = run_cli(
+        &["show", "nonexistent-topic", "--format", "toon"],
+        root.path(),
+    );
     assert_eq!(res.status, 1);
-    assert!(!res.stdout.trim().is_empty(), "expected a non-empty structured payload on stdout");
+    assert!(
+        !res.stdout.trim().is_empty(),
+        "expected a non-empty structured payload on stdout"
+    );
     assert_eq!(res.stderr, "");
 }

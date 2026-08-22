@@ -28,7 +28,10 @@ fn distill_validate_passes_a_well_formed_file() {
         "lessons/pitfalls.md",
         "# Pitfalls\n\n---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA valid lesson.\n",
     );
-    let res = run_cli(&["distill", "--validate", "lessons/pitfalls.md"], root.path());
+    let res = run_cli(
+        &["distill", "--validate", "lessons/pitfalls.md"],
+        root.path(),
+    );
     assert!(res.stdout.contains("valid"));
     assert_ne!(res.status, 1);
 }
@@ -41,7 +44,10 @@ fn distill_validate_fails_a_schema_broken_file_with_a_non_zero_exit() {
         "lessons/pitfalls.md",
         "# Pitfalls\n\n---\nid: bad\ntype: pitfall\n---\nbroken\n",
     );
-    let res = run_cli(&["distill", "--validate", "lessons/pitfalls.md"], root.path());
+    let res = run_cli(
+        &["distill", "--validate", "lessons/pitfalls.md"],
+        root.path(),
+    );
     assert_eq!(res.status, 1);
     assert!(res.stdout.contains("error"));
 }
@@ -73,7 +79,8 @@ fn distill_archive_rejects_a_bad_month_argument() {
 }
 
 #[test]
-fn fri_001_distill_archive_dash_2026_08_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
+fn fri_001_distill_archive_dash_2026_08_gives_the_existing_validation_error_not_a_raw_parseargs_crash(
+) {
     let root = setup();
     let res = run_cli(&["distill", "--archive", "-2026-08"], root.path());
     assert_ne!(res.status, 0);
@@ -90,7 +97,10 @@ fn distill_validate_fails_frontmatter_holding_a_block_scalar() {
         "lessons/pitfalls.md",
         "# Pitfalls\n\n---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: |\n  journal/2026-07.md\n  plus trailing junk\n---\nBody.\n",
     );
-    let res = run_cli(&["distill", "--validate", "lessons/pitfalls.md"], root.path());
+    let res = run_cli(
+        &["distill", "--validate", "lessons/pitfalls.md"],
+        root.path(),
+    );
     assert_eq!(res.status, 1);
     assert!(
         res.stdout.contains("frontmatter.parse") || res.stdout.contains("block scalars"),

@@ -61,7 +61,9 @@ fn advise_emits_a_prompt_naming_the_plan_the_digest_and_the_precedence_rule_verb
     assert!(res.stdout.contains("LES-001"));
     assert!(res.stdout.contains("Normative contradiction"));
     assert!(res.stdout.contains("Empirical contradiction"));
-    assert!(res.stdout.contains("agnosgram advise --validate plan.md.advise.json"));
+    assert!(res
+        .stdout
+        .contains("agnosgram advise --validate plan.md.advise.json"));
 }
 
 #[test]
@@ -91,7 +93,11 @@ fn advise_validate_passes_a_well_formed_provenance_correct_report() {
 #[test]
 fn advise_validate_fails_on_a_confidence_provenance_mismatch() {
     let root = setup();
-    fs::write(root.path().join("report.json"), report_with_contradiction_field("confidence", "\"low\"")).unwrap();
+    fs::write(
+        root.path().join("report.json"),
+        report_with_contradiction_field("confidence", "\"low\""),
+    )
+    .unwrap();
     let res = run_cli(&["advise", "--validate", "report.json"], root.path());
     assert_eq!(res.status, 1);
     assert!(res.stdout.contains("provenance.confidence.mismatch"));
@@ -100,7 +106,11 @@ fn advise_validate_fails_on_a_confidence_provenance_mismatch() {
 #[test]
 fn advise_validate_fails_when_a_cited_record_id_does_not_exist() {
     let root = setup();
-    fs::write(root.path().join("report.json"), report_with_contradiction_field("record_id", "\"LES-999\"")).unwrap();
+    fs::write(
+        root.path().join("report.json"),
+        report_with_contradiction_field("record_id", "\"LES-999\""),
+    )
+    .unwrap();
     let res = run_cli(&["advise", "--validate", "report.json"], root.path());
     assert_eq!(res.status, 1);
     assert!(res.stdout.contains("provenance.record_id.unknown"));
@@ -122,11 +132,18 @@ fn advise_validate_warns_does_not_error_on_an_excerpt_substring_mismatch() {
 #[test]
 fn advise_validate_exit_0_without_strict_exit_1_with_strict_when_clear_is_false_but_valid() {
     let root = setup();
-    fs::write(root.path().join("report.json"), report_with_no_contradictions(false)).unwrap();
+    fs::write(
+        root.path().join("report.json"),
+        report_with_no_contradictions(false),
+    )
+    .unwrap();
     let res = run_cli(&["advise", "--validate", "report.json"], root.path());
     assert_ne!(res.status, 1);
 
-    let res = run_cli(&["advise", "--validate", "report.json", "--strict"], root.path());
+    let res = run_cli(
+        &["advise", "--validate", "report.json", "--strict"],
+        root.path(),
+    );
     assert_eq!(res.status, 1);
 }
 
@@ -134,9 +151,15 @@ fn advise_validate_exit_0_without_strict_exit_1_with_strict_when_clear_is_false_
 fn advise_validate_json_returns_file_ok_errors_warnings_issues_report() {
     let root = setup();
     fs::write(root.path().join("report.json"), valid_report(&[])).unwrap();
-    let res = run_cli(&["advise", "--validate", "report.json", "--json"], root.path());
+    let res = run_cli(
+        &["advise", "--validate", "report.json", "--json"],
+        root.path(),
+    );
     let parsed = Json::parse(&res.stdout);
-    assert_eq!(parsed.get("file").and_then(Json::as_str), Some("report.json"));
+    assert_eq!(
+        parsed.get("file").and_then(Json::as_str),
+        Some("report.json")
+    );
     assert_eq!(parsed.get("ok").and_then(Json::as_bool), Some(true));
     assert_eq!(parsed.get("errors").and_then(Json::as_f64), Some(0.0));
     assert!(parsed.get("warnings").and_then(Json::as_f64).is_some());
@@ -178,7 +201,11 @@ fn advise_with_no_plan_path_throws_a_usage_error() {
 #[test]
 fn advise_validate_errors_even_without_strict_when_clear_true_coexists_with_a_blocker() {
     let root = setup();
-    fs::write(root.path().join("report.json"), valid_report(&[("clear", "true")])).unwrap();
+    fs::write(
+        root.path().join("report.json"),
+        valid_report(&[("clear", "true")]),
+    )
+    .unwrap();
     let res = run_cli(&["advise", "--validate", "report.json"], root.path());
     assert_eq!(res.status, 1);
     assert!(res.stdout.contains("consistency.clear"));
@@ -188,8 +215,15 @@ fn advise_validate_errors_even_without_strict_when_clear_true_coexists_with_a_bl
 #[test]
 fn advise_validate_strict_derives_exit_mechanically_blocker_plus_clear_true_still_exits_1() {
     let root = setup();
-    fs::write(root.path().join("report.json"), valid_report(&[("clear", "true")])).unwrap();
-    let res = run_cli(&["advise", "--validate", "report.json", "--strict"], root.path());
+    fs::write(
+        root.path().join("report.json"),
+        valid_report(&[("clear", "true")]),
+    )
+    .unwrap();
+    let res = run_cli(
+        &["advise", "--validate", "report.json", "--strict"],
+        root.path(),
+    );
     assert_eq!(res.status, 1);
 }
 
@@ -208,7 +242,10 @@ fn advise_validate_falls_back_to_a_root_relative_plan_path_from_a_subdirectory()
     let root = setup();
     fs::create_dir_all(root.path().join("sub")).unwrap();
     fs::write(root.path().join("sub/report.json"), valid_report(&[])).unwrap();
-    let res = run_cli(&["advise", "--validate", "report.json"], &root.path().join("sub"));
+    let res = run_cli(
+        &["advise", "--validate", "report.json"],
+        &root.path().join("sub"),
+    );
     assert!(res.stdout.contains("valid"));
     assert!(!res.stdout.contains("coverage.plan_missing"));
 }
@@ -218,7 +255,11 @@ fn advise_validate_resolves_an_absolute_plan_path() {
     let root = setup();
     let abs_plan = root.path().join("plan.md");
     let abs_plan_str = abs_plan.to_str().unwrap().to_string();
-    fs::write(root.path().join("report.json"), valid_report(&[("plan", &abs_plan_str)])).unwrap();
+    fs::write(
+        root.path().join("report.json"),
+        valid_report(&[("plan", &abs_plan_str)]),
+    )
+    .unwrap();
     let res = run_cli(&["advise", "--validate", "report.json"], root.path());
     assert!(res.stdout.contains("valid"));
     assert!(!res.stdout.contains("coverage.plan_missing"));
@@ -234,7 +275,9 @@ fn advises_digest_never_includes_meta_friction_md_content() {
     );
     let res = run_cli(&["advise", "plan.md"], root.path());
     assert!(!res.stdout.contains("FRI-001"));
-    assert!(!res.stdout.contains("tool friction, not host-project memory"));
+    assert!(!res
+        .stdout
+        .contains("tool friction, not host-project memory"));
 }
 
 #[test]
@@ -247,7 +290,11 @@ fn advise_digest_table_escapes_pipes_in_body_excerpts_and_only_appends_ellipsis_
     );
     let res = run_cli(&["advise", "plan.md"], root.path());
     assert!(res.stdout.contains("a \\| pipe in it."));
-    let row = res.stdout.lines().find(|l| l.contains("LES-002")).expect("row for LES-002");
+    let row = res
+        .stdout
+        .lines()
+        .find(|l| l.contains("LES-002"))
+        .expect("row for LES-002");
     assert!(!row.contains("..."));
 }
 
@@ -261,6 +308,10 @@ fn advise_digest_table_appends_ellipsis_only_when_the_body_actually_exceeds_80_c
         &format!("# Pitfalls\n\n---\nid: LES-003\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\n{body}\n"),
     );
     let res = run_cli(&["advise", "plan.md"], root.path());
-    let row = res.stdout.lines().find(|l| l.contains("LES-003")).expect("row for LES-003");
+    let row = res
+        .stdout
+        .lines()
+        .find(|l| l.contains("LES-003"))
+        .expect("row for LES-003");
     assert!(row.contains("..."));
 }

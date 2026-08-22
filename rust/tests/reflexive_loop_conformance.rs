@@ -15,14 +15,24 @@ fn setup() -> TempDir {
     init_store(root.path());
     // A host-project file alongside .agnosgram/, so "the working tree" means
     // more than just the store.
-    fs::write(root.path().join("ROADMAP.md"), "# Roadmap\n- [ ] Milestone 5\n").unwrap();
+    fs::write(
+        root.path().join("ROADMAP.md"),
+        "# Roadmap\n- [ ] Milestone 5\n",
+    )
+    .unwrap();
     root
 }
 
 #[test]
 fn reflect_leaves_the_entire_working_tree_untouched() {
     let root = setup();
-    run_cli(&["feedback", "seed friction so reflect has something to digest"], root.path());
+    run_cli(
+        &[
+            "feedback",
+            "seed friction so reflect has something to digest",
+        ],
+        root.path(),
+    );
     let before = snapshot(root.path());
     run_cli(&["reflect"], root.path());
     run_cli(&["reflect", "--json", "--months", "12"], root.path());
@@ -33,7 +43,11 @@ fn reflect_leaves_the_entire_working_tree_untouched() {
         "reflect must not create or delete any file"
     );
     for (file, mtime) in &before {
-        assert_eq!(after.get(file), Some(mtime), "reflect must not modify {file:?}");
+        assert_eq!(
+            after.get(file),
+            Some(mtime),
+            "reflect must not modify {file:?}"
+        );
     }
 }
 
@@ -42,7 +56,10 @@ fn feedback_writes_only_under_agnosgram_meta() {
     let root = setup();
     let before = snapshot(root.path());
     run_cli(&["feedback", "only meta/ should change"], root.path());
-    run_cli(&["feedback", "a second entry, still only meta/"], root.path());
+    run_cli(
+        &["feedback", "a second entry, still only meta/"],
+        root.path(),
+    );
     let after = snapshot(root.path());
 
     let changed: Vec<&PathBuf> = after
@@ -53,9 +70,15 @@ fn feedback_writes_only_under_agnosgram_meta() {
     let removed: Vec<&PathBuf> = before.keys().filter(|k| !after.contains_key(*k)).collect();
 
     assert!(removed.is_empty(), "feedback must never delete a file");
-    assert!(!changed.is_empty(), "expected feedback to write at least meta/friction.md");
+    assert!(
+        !changed.is_empty(),
+        "expected feedback to write at least meta/friction.md"
+    );
     let expected = PathBuf::from(".agnosgram").join("meta").join("friction.md");
     for rel in changed {
-        assert_eq!(rel, &expected, "feedback wrote outside .agnosgram/meta/: {rel:?}");
+        assert_eq!(
+            rel, &expected,
+            "feedback wrote outside .agnosgram/meta/: {rel:?}"
+        );
     }
 }

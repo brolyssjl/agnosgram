@@ -67,7 +67,11 @@ struct TierOneRow {
 fn measure_tier1(payload: &Value) -> TierOneRow {
     let json = estimate_tokens(&stringify_compact(payload));
     let toon = estimate_tokens(&encode_toon(payload));
-    TierOneRow { json, toon, delta_pct: delta_pct(toon, json) }
+    TierOneRow {
+        json,
+        toon,
+        delta_pct: delta_pct(toon, json),
+    }
 }
 
 /// Gate (adapted from bench.mjs Gates 1+4, which both asserted a >=15% win
@@ -125,7 +129,11 @@ const TABULAR_TASKS: &[(&str, &[&str])] = &[
 ];
 
 fn fixture_root(name: &str) -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("bench").join("fixtures").join(name)
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("bench")
+        .join("fixtures")
+        .join(name)
 }
 
 /// Runs one CLI task against a fixture store, in the given format. None of
@@ -170,12 +178,19 @@ fn toon_saves_tokens_vs_compact_json_for_tabular_cli_output() {
             let json_stdout = measure(&root, args, "json");
             let toon_stdout = measure(&root, args, "toon");
 
-            let parsed = agnosgram::core::json::parse(&json_stdout)
-                .unwrap_or_else(|e| panic!("CLI's own --format json output failed to parse for {store}/{task}: {e}"));
+            let parsed = agnosgram::core::json::parse(&json_stdout).unwrap_or_else(|e| {
+                panic!("CLI's own --format json output failed to parse for {store}/{task}: {e}")
+            });
             let compact_json_tokens = estimate_tokens(&stringify_compact(&parsed));
             let toon_tokens = estimate_tokens(&toon_stdout);
-            assert!(compact_json_tokens > 0, "measured 0 tokens for {store}/{task}/json - treating as a measurement failure");
-            assert!(toon_tokens > 0, "measured 0 tokens for {store}/{task}/toon - treating as a measurement failure");
+            assert!(
+                compact_json_tokens > 0,
+                "measured 0 tokens for {store}/{task}/json - treating as a measurement failure"
+            );
+            assert!(
+                toon_tokens > 0,
+                "measured 0 tokens for {store}/{task}/toon - treating as a measurement failure"
+            );
 
             let pct = delta_pct(toon_tokens, compact_json_tokens);
             assert!(
@@ -204,7 +219,8 @@ fn toon_saves_tokens_vs_compact_json_for_tabular_cli_output() {
 #[test]
 fn packs_budget_caps_real_output_growth() {
     const BUDGET_TOLERANCE: f64 = 1.1;
-    let ceiling = (agnosgram::commands::pack::DEFAULT_PACK_BUDGET as f64 * BUDGET_TOLERANCE).round() as i64;
+    let ceiling =
+        (agnosgram::commands::pack::DEFAULT_PACK_BUDGET as f64 * BUDGET_TOLERANCE).round() as i64;
     for store in ["store-small", "store-large"] {
         let root = fixture_root(store);
         for &(task, args) in TABULAR_TASKS.iter().filter(|(t, _)| *t != "show") {

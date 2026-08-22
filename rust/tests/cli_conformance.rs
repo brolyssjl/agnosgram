@@ -7,7 +7,11 @@ fn version_prints_a_bare_semver_looking_string() {
     let cwd = TempDir::new("agnos-cli");
     let res = run_cli(&["--version"], cwd.path());
     assert_eq!(res.status, 0);
-    assert!(looks_like_semver(res.stdout.trim()), "not semver-looking: {:?}", res.stdout);
+    assert!(
+        looks_like_semver(res.stdout.trim()),
+        "not semver-looking: {:?}",
+        res.stdout
+    );
 }
 
 #[test]

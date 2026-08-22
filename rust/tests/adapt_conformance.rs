@@ -39,7 +39,10 @@ fn fri_003_claude_md_symlinked_to_agents_md_reports_one_honest_write_not_two() {
     assert_eq!(second.status, 0);
     assert!(second.stdout.contains("unchanged"));
     assert!(second.stdout.contains("CLAUDE.md -> AGENTS.md (symlink)"));
-    assert_eq!(fs::read_to_string(root.path().join("AGENTS.md")).unwrap(), agents_content);
+    assert_eq!(
+        fs::read_to_string(root.path().join("AGENTS.md")).unwrap(),
+        agents_content
+    );
 }
 
 #[test]
@@ -64,11 +67,23 @@ fn fri_003_json_reports_the_write_once_with_the_symlinked_adapter_as_an_alias() 
     let parsed = Json::parse(&res.stdout);
     let adapters = parsed.get("adapters").and_then(Json::as_array).unwrap();
     assert_eq!(adapters.len(), 1);
-    assert_eq!(adapters[0].get("path").and_then(Json::as_str), Some("AGENTS.md"));
-    let aliases = adapters[0].get("symlinkAliases").and_then(Json::as_array).unwrap();
+    assert_eq!(
+        adapters[0].get("path").and_then(Json::as_str),
+        Some("AGENTS.md")
+    );
+    let aliases = adapters[0]
+        .get("symlinkAliases")
+        .and_then(Json::as_array)
+        .unwrap();
     assert_eq!(aliases.len(), 1);
-    assert_eq!(aliases[0].get("adapter").and_then(Json::as_str), Some("claude"));
-    assert_eq!(aliases[0].get("path").and_then(Json::as_str), Some("CLAUDE.md"));
+    assert_eq!(
+        aliases[0].get("adapter").and_then(Json::as_str),
+        Some("claude")
+    );
+    assert_eq!(
+        aliases[0].get("path").and_then(Json::as_str),
+        Some("CLAUDE.md")
+    );
 }
 
 #[test]
@@ -76,6 +91,14 @@ fn non_symlinked_claude_md_and_agents_md_are_still_reported_independently() {
     let root = setup();
     let res = run_cli(&["adapt", "claude", "agents"], root.path());
     assert_eq!(res.status, 0);
-    assert!(res.stdout.contains("created") && res.stdout.contains("CLAUDE.md") && res.stdout.contains("(Claude Code)"));
-    assert!(res.stdout.contains("created") && res.stdout.contains("AGENTS.md") && res.stdout.contains("(AGENTS.md)"));
+    assert!(
+        res.stdout.contains("created")
+            && res.stdout.contains("CLAUDE.md")
+            && res.stdout.contains("(Claude Code)")
+    );
+    assert!(
+        res.stdout.contains("created")
+            && res.stdout.contains("AGENTS.md")
+            && res.stdout.contains("(AGENTS.md)")
+    );
 }

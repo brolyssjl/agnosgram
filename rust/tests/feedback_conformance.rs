@@ -18,7 +18,10 @@ fn friction_path(root: &TempDir) -> std::path::PathBuf {
 fn feedback_creates_meta_friction_md_on_first_use_not_before() {
     let root = setup();
     assert!(!friction_path(&root).exists());
-    let res = run_cli(&["feedback", "doctor's error message was confusing"], root.path());
+    let res = run_cli(
+        &["feedback", "doctor's error message was confusing"],
+        root.path(),
+    );
     assert_eq!(res.status, 0);
     assert!(friction_path(&root).exists());
     let text = fs::read_to_string(friction_path(&root)).unwrap();
@@ -49,7 +52,17 @@ fn feedback_defaults_scope_to_cli_and_confidence_to_medium() {
 #[test]
 fn feedback_scope_and_confidence_override_the_defaults() {
     let root = setup();
-    run_cli(&["feedback", "custom", "--scope", "docs,ux", "--confidence", "high"], root.path());
+    run_cli(
+        &[
+            "feedback",
+            "custom",
+            "--scope",
+            "docs,ux",
+            "--confidence",
+            "high",
+        ],
+        root.path(),
+    );
     let text = fs::read_to_string(friction_path(&root)).unwrap();
     assert!(text.contains("scope: [docs, ux]"));
     assert!(text.contains("confidence: high"));
@@ -68,7 +81,9 @@ fn feedback_rejects_a_scope_tag_that_would_break_the_yaml_flow_sequence_bracket(
     let root = setup();
     let res = run_cli(&["feedback", "x", "--scope", "cli]x"], root.path());
     assert_ne!(res.status, 0);
-    assert!(res.stderr.contains("--scope tag \"cli]x\" must contain only"));
+    assert!(res
+        .stderr
+        .contains("--scope tag \"cli]x\" must contain only"));
 }
 
 #[test]
@@ -76,7 +91,9 @@ fn feedback_rejects_a_scope_tag_containing_a_colon_space() {
     let root = setup();
     let res = run_cli(&["feedback", "x", "--scope", "a: b"], root.path());
     assert_ne!(res.status, 0);
-    assert!(res.stderr.contains("--scope tag \"a: b\" must contain only"));
+    assert!(res
+        .stderr
+        .contains("--scope tag \"a: b\" must contain only"));
 }
 
 #[test]
@@ -106,12 +123,16 @@ fn feedback_json_prints_a_structured_envelope_and_no_gh_command_by_default() {
     let res = run_cli(&["feedback", "json output test", "--json"], root.path());
     let parsed = Json::parse(&res.stdout);
     assert_eq!(parsed.get("id").and_then(Json::as_str), Some("FRI-001"));
-    assert_eq!(parsed.get("text").and_then(Json::as_str), Some("json output test"));
+    assert_eq!(
+        parsed.get("text").and_then(Json::as_str),
+        Some("json output test")
+    );
     assert!(parsed.get("share").map(Json::is_null).unwrap_or(false));
 }
 
 #[test]
-fn feedback_share_prints_a_ready_to_run_gh_issue_create_command_targeting_the_real_repo_but_never_runs_it() {
+fn feedback_share_prints_a_ready_to_run_gh_issue_create_command_targeting_the_real_repo_but_never_runs_it(
+) {
     let root = setup();
     let res = run_cli(&["feedback", "share me", "--share"], root.path());
     assert!(res.stdout.contains("gh issue create"));
@@ -127,7 +148,10 @@ fn feedback_share_json_includes_the_command_targeting_the_real_repo_as_a_string_
     let root = setup();
     let res = run_cli(&["feedback", "share me", "--share", "--json"], root.path());
     let parsed = Json::parse(&res.stdout);
-    let share = parsed.get("share").and_then(Json::as_str).expect("share must be a string");
+    let share = parsed
+        .get("share")
+        .and_then(Json::as_str)
+        .expect("share must be a string");
     assert!(share.starts_with("gh issue create"));
     assert!(share.contains("--repo brolyssjl/agnosgram"));
 }
@@ -141,7 +165,10 @@ fn feedback_writes_only_under_agnosgram_meta_touching_no_other_file() {
     run_cli(&["feedback", "isolation check"], root.path());
     let after = fs::read_to_string(&status_path).unwrap();
     assert_eq!(before, after);
-    assert_eq!(root.path().join("ROADMAP.md").exists(), before_roadmap_exists);
+    assert_eq!(
+        root.path().join("ROADMAP.md").exists(),
+        before_roadmap_exists
+    );
 }
 
 #[test]

@@ -11,7 +11,11 @@ fn setup() -> TempDir {
 }
 
 fn write_friction(root: &TempDir, body: &str) {
-    write_store_file(root.path(), "meta/friction.md", &format!("# Friction\n\n{body}"));
+    write_store_file(
+        root.path(),
+        "meta/friction.md",
+        &format!("# Friction\n\n{body}"),
+    );
 }
 
 #[test]
@@ -21,7 +25,9 @@ fn reflect_emits_a_prompt_naming_friction_journal_months_and_the_roadmap_rule() 
     assert_eq!(res.status, 0);
     assert!(res.stdout.contains("reflect task"));
     assert!(res.stdout.contains("meta/friction.md"));
-    assert!(res.stdout.contains("ROADMAP.md is owner-edited") || res.stdout.contains("owner-edited"));
+    assert!(
+        res.stdout.contains("ROADMAP.md is owner-edited") || res.stdout.contains("owner-edited")
+    );
     assert!(
         res.stdout.contains("never to `ROADMAP.md` directly")
             || res.stdout.contains("never applied automatically")
@@ -50,12 +56,21 @@ fn reflect_json_returns_a_versioned_envelope_with_friction_and_journal_coverage(
     );
     let res = run_cli(&["reflect", "--json"], root.path());
     let parsed = Json::parse(&res.stdout);
-    assert_eq!(parsed.get("agnosgram_reflect").and_then(Json::as_f64), Some(1.0));
+    assert_eq!(
+        parsed.get("agnosgram_reflect").and_then(Json::as_f64),
+        Some(1.0)
+    );
     let ids = parsed.get("friction_ids").and_then(Json::as_array).unwrap();
     assert_eq!(ids.len(), 1);
     assert_eq!(ids[0].as_str(), Some("FRI-001"));
-    assert_eq!(parsed.get("friction_count").and_then(Json::as_f64), Some(1.0));
-    assert!(parsed.get("journal_months").and_then(Json::as_array).is_some());
+    assert_eq!(
+        parsed.get("friction_count").and_then(Json::as_f64),
+        Some(1.0)
+    );
+    assert!(parsed
+        .get("journal_months")
+        .and_then(Json::as_array)
+        .is_some());
     assert!(parsed.get("prompt").and_then(Json::as_str).is_some());
 }
 
@@ -64,7 +79,11 @@ fn reflect_months_limits_how_many_recent_journal_months_are_listed() {
     let root = setup();
     let journal_dir = root.path().join(".agnosgram/journal");
     for m in ["2026-01", "2026-02", "2026-03", "2026-04"] {
-        fs::write(journal_dir.join(format!("{m}.md")), format!("# Journal - {m}\n")).unwrap();
+        fs::write(
+            journal_dir.join(format!("{m}.md")),
+            format!("# Journal - {m}\n"),
+        )
+        .unwrap();
     }
     let mut all_months: Vec<String> = fs::read_dir(&journal_dir)
         .unwrap()
@@ -118,7 +137,9 @@ fn fri_001_reflect_months_dash_1_gives_the_existing_validation_error_not_a_raw_p
     let root = setup();
     let res = run_cli(&["reflect", "--months", "-1"], root.path());
     assert_ne!(res.status, 0);
-    assert!(res.stderr.contains("--months must be a positive integer, got \"-1\""));
+    assert!(res
+        .stderr
+        .contains("--months must be a positive integer, got \"-1\""));
 }
 
 #[test]
@@ -138,6 +159,10 @@ fn reflect_performs_no_writes_to_the_repo_read_only() {
         "reflect must not create or delete any file"
     );
     for (file, mtime) in &before {
-        assert_eq!(after.get(file), Some(mtime), "reflect must not modify {file:?}");
+        assert_eq!(
+            after.get(file),
+            Some(mtime),
+            "reflect must not modify {file:?}"
+        );
     }
 }

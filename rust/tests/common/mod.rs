@@ -22,9 +22,7 @@ pub struct CliRun {
 
 fn bin_command() -> Vec<String> {
     match env::var("AGNOSGRAM_BIN") {
-        Ok(over) if !over.trim().is_empty() => {
-            over.trim().split_whitespace().map(String::from).collect()
-        }
+        Ok(over) if !over.trim().is_empty() => over.split_whitespace().map(String::from).collect(),
         _ => vec![env!("CARGO_BIN_EXE_agnosgram").to_string()],
     }
 }
@@ -37,13 +35,19 @@ pub fn run_cli(args: &[&str], cwd: &Path) -> CliRun {
 /// Run one CLI invocation, optionally piping `input` to stdin.
 pub fn run_cli_stdin(args: &[&str], cwd: &Path, input: Option<&str>) -> CliRun {
     let parts = bin_command();
-    let (cmd, prefix) = parts.split_first().expect("AGNOSGRAM_BIN must not be empty");
+    let (cmd, prefix) = parts
+        .split_first()
+        .expect("AGNOSGRAM_BIN must not be empty");
     let mut command = Command::new(cmd);
     command
         .args(prefix)
         .args(args)
         .current_dir(cwd)
-        .stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
+        .stdin(if input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = command.spawn().expect("failed to spawn agnosgram binary");
@@ -55,7 +59,9 @@ pub fn run_cli_stdin(args: &[&str], cwd: &Path, input: Option<&str>) -> CliRun {
             .write_all(text.as_bytes())
             .expect("failed to write stdin");
     }
-    let output = child.wait_with_output().expect("failed to wait on agnosgram binary");
+    let output = child
+        .wait_with_output()
+        .expect("failed to wait on agnosgram binary");
     CliRun {
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
         stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
@@ -142,7 +148,10 @@ fn is_month_filename(name: &str) -> bool {
 /// True if `s` is exactly `\d+\.\d+\.\d+` (a bare semver, no pre-release).
 pub fn looks_like_semver(s: &str) -> bool {
     let parts: Vec<&str> = s.split('.').collect();
-    parts.len() == 3 && parts.iter().all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+    parts.len() == 3
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
 }
 
 /// True if any line, trimmed, equals `line` exactly (stand-in for a `^...$`
@@ -378,7 +387,11 @@ fn parse_object(chars: &[char], pos: &mut usize) -> Option<Json> {
     }
 }
 
-fn snapshot_into(dir: &Path, base: &Path, out: &mut std::collections::BTreeMap<PathBuf, SystemTime>) {
+fn snapshot_into(
+    dir: &Path,
+    base: &Path,
+    out: &mut std::collections::BTreeMap<PathBuf, SystemTime>,
+) {
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,
@@ -392,8 +405,14 @@ fn snapshot_into(dir: &Path, base: &Path, out: &mut std::collections::BTreeMap<P
         if file_type.is_dir() {
             snapshot_into(&full, base, out);
         } else if file_type.is_file() {
-            let mtime = full.metadata().and_then(|m| m.modified()).expect("failed to read mtime");
-            let rel = full.strip_prefix(base).expect("file must be under base").to_path_buf();
+            let mtime = full
+                .metadata()
+                .and_then(|m| m.modified())
+                .expect("failed to read mtime");
+            let rel = full
+                .strip_prefix(base)
+                .expect("file must be under base")
+                .to_path_buf();
             out.insert(rel, mtime);
         }
     }

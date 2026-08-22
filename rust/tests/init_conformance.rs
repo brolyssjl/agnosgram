@@ -22,7 +22,10 @@ fn init_scaffolds_the_full_store() {
     let res = run_cli(&["init", "--json"], root.path());
     assert_eq!(res.status, 0);
     for rel in SCAFFOLD {
-        assert!(root.path().join(".agnosgram").join(rel).exists(), "missing {rel}");
+        assert!(
+            root.path().join(".agnosgram").join(rel).exists(),
+            "missing {rel}"
+        );
     }
     let month = current_journal_month(root.path());
     assert!(root
