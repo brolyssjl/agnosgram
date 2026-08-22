@@ -71,6 +71,11 @@ jobs:
             echo "::error::No release assets were produced by build-and-verify"
             exit 1
           fi
+      - name: Generate SHA256SUMS
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
