@@ -4,9 +4,7 @@
 //! agent to run `agnosgram log`, and a skill file describing the CLI.
 //!
 //! Also carries the write-if-changed helper (`src/core/writeFile.ts` in the
-//! TS tree) since both this module and `commands::adapt` need it and the
-//! wave-1 core module list (see `docs/rust-port.md`) does not include a
-//! standalone file for it.
+//! TS tree), shared with `commands::adapt`.
 
 use std::fs;
 use std::path::Path;

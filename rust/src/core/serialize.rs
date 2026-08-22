@@ -11,6 +11,7 @@ pub enum Format {
     Toon,
 }
 
+#[allow(dead_code)] // TS isFormat is load-bearing; resolve_format subsumed it here
 pub fn is_format(value: &str) -> bool {
     value == "json" || value == "toon"
 }

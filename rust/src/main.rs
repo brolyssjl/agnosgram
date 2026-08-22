@@ -1,14 +1,4 @@
-//! Port of `src/cli.ts`: argv dispatch, help/version, exit codes. Mirrors the
-//! TS entry point exactly - see `docs/rust-port.md`'s exactness contract.
-//! Wave 2 replaces each `commands::*::run` body without touching this file.
-
-// Wave 1 scaffolds every `core/` module ahead of the commands that will call
-// into them (see docs/rust-port.md's wave plan): every command is still a
-// stub, so most `core/` exports are unused until wave 2 wires them up. Allow
-// dead code for that transitional state rather than defeat clippy's
-// `-D warnings` gate with artificial uses. Each `core/*.rs` module still
-// carries its own `#[cfg(test)]` coverage, exercised by `cargo test`.
-#![allow(dead_code)]
+//! Port of `src/cli.ts`: argv dispatch, help/version, exit codes.
 
 mod adapters;
 mod claude_hooks;

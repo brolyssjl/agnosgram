@@ -16,12 +16,6 @@ pub struct LintHit {
 
 type Matcher = fn(&[char], usize) -> Option<usize>;
 
-struct LintPattern {
-    code: &'static str,
-    label: &'static str,
-    matcher: Matcher,
-}
-
 fn is_word_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_'
 }

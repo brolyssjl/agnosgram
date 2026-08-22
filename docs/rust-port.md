@@ -4,6 +4,9 @@ Working plan for porting the frozen CLI surface (DEC-0004) to Rust. This is a
 contributor document; the user-facing contract is unchanged. Delete or archive
 once `1.0.0` ships and the TypeScript implementation is retired.
 
+**Status:** All waves landed 2026-08-20, and 1.0.0 shipped 2026-08-21 with the
+Rust binary as canonical. This document remains as the port's design record.
+
 ## Goal and definition of done
 
 One Rust crate, in-repo, producing a single static `agnosgram` binary with a

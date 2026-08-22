@@ -8,6 +8,7 @@
 pub struct FreshnessRow {
     pub file: String,
     pub last_verified: String,
+    #[allow(dead_code)] // parsed for the on-disk shape; doctor never reads it (same in TS)
     pub budget: i64,
 }
 
