@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Install `agnosgram` without a local npm install.
+# Install `agnosgram` - no npm involved, ever (Milestone 6 owner decision).
 #
 # Primary path: fetch the single-file binary for this platform from the
 # latest GitHub release and place it on PATH. Falls back to build-from-source
-# instructions when no matching binary asset exists yet - agnosgram is not
-# published to npm, so an npm install fallback would just 404.
+# instructions (cargo) when no matching binary asset exists yet.
 #
 # Built platforms (keep in sync with .github/workflows/release.yml's
 # build-binaries matrix - update both together when adding a platform):
@@ -79,17 +78,16 @@ install_binary() {
 }
 
 print_source_fallback() {
-  # agnosgram is not published to npm - an `npm install -g agnosgram` fallback
-  # here would only ever 404, so give honest build-from-source steps instead.
+  # agnosgram is not on npm and never will be (Milestone 6 owner decision) -
+  # give honest build-from-source steps instead of a fallback that could
+  # only ever 404.
   echo "No matching binary release (built for: ${BUILT_PLATFORMS})." >&2
-  echo "agnosgram is not on npm yet, so npm install -g agnosgram cannot work." >&2
-  echo "Build from source instead (needs Node >= 20):" >&2
+  echo "agnosgram is not on npm; build from source instead (needs a stable Rust toolchain):" >&2
   echo "  git clone https://github.com/${REPO}.git" >&2
   echo "  cd ${BIN_NAME}" >&2
-  echo "  npm ci" >&2
-  echo "  npm run build" >&2
-  echo "  node dist/cli.js --help   # run directly, or:" >&2
-  echo "  npm link                  # put '${BIN_NAME}' on PATH instead" >&2
+  echo "  cargo build --release --manifest-path rust/Cargo.toml" >&2
+  echo "  ./rust/target/release/${BIN_NAME} --help   # run directly, or:" >&2
+  echo "  install -m 755 rust/target/release/${BIN_NAME} \"\$HOME/.local/bin/${BIN_NAME}\"" >&2
 }
 
 main() {

@@ -116,8 +116,10 @@ To cut a release:
    git tag v0.5.0
    git push origin v0.5.0
    ```
-3. The workflow publishes the GitHub release. npm publish runs only if the repo
-   variable `NPM_PUBLISH=true` and secret `NPM_TOKEN` are set (owner-controlled).
+3. The workflow publishes the GitHub release. A dormant `publish-npm` job exists
+   behind `NPM_PUBLISH=true` + `NPM_TOKEN`, but per the Milestone 6 owner
+   decision npm is permanently off the user-facing install path - that job is
+   not enabled and is not part of the release story going forward.
 
 ### Release checkpoints (see ROADMAP.md)
 
@@ -128,10 +130,12 @@ To cut a release:
 | `0.5.0` (beta) | Milestone 2 done + format freeze - first release safe on a real project |
 | `0.8.0` (RC) | Milestone 3 done (`advise`, `pack`/`show`) |
 | `0.9.0` | Milestone 4 done (adapters, Claude Code hooks, install.sh + binaries, SDD coexistence) |
-| `1.0.0` | `0.9.0` + real-world soak |
+| `1.0.0` | Milestone 6 Rust port, shipped on its conformance evidence (owner decision 2026-08-21; the rc soak became post-1.0.0 hardening) |
 
-## Enabling npm publish (owner)
+## npm publish (disabled)
 
-1. Create an npm automation token; add it as the `NPM_TOKEN` repo secret.
-2. Set repo variable `NPM_PUBLISH=true`.
-3. Push the next version tag; the `publish-npm` job runs with provenance.
+The workflow still carries a `publish-npm` job (gated on `NPM_PUBLISH=true` +
+`NPM_TOKEN`), but it is not enabled: the Milestone 6 owner decision makes
+prebuilt binaries the permanent user-facing distribution and takes npm off
+that path for good. Do not enable this job as a way to ship a user-facing
+install method.

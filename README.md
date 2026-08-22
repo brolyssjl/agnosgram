@@ -10,15 +10,18 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
-> **Status:** `0.11.0`. Milestones 1-5 are done and dogfooded on this repo: capture
+> **Status:** `1.0.0`. Milestones 1-5 plus the Milestone 6 Rust port are done
+> and dogfooded on this repo: capture
 > (`init` / `adapt` / `log`), the self-maintaining half (`doctor` / `distill` /
 > `bootstrap`), retrieval (`pack` / `show` / `advise`), reach (every mainstream
-> adapter, opt-in Claude Code hooks, `install.sh` + binaries, SDD coexistence), and
-> the reflexive loop (`feedback` / `reflect`, a strictly separate `meta/` namespace).
-> **The on-disk `.agnosgram/` format is frozen** at format version 1 - safe to adopt
-> on a real, even legacy, project - and `0.11.0` freezes the CLI surface as the
-> Milestone 6 Rust port contract (DEC-0004). `1.0.0` ships as that Rust port after
-> a real-world soak; see [ROADMAP.md](ROADMAP.md) and the
+> adapter, opt-in Claude Code hooks, `install.sh` + binaries, SDD coexistence), the
+> reflexive loop (`feedback` / `reflect`, a strictly separate `meta/` namespace),
+> and the Rust port. **The on-disk `.agnosgram/` format is frozen** at format
+> version 1 - safe to adopt on a real, even legacy, project - and the CLI surface
+> is frozen as the conformance-checked port contract (DEC-0004). **The Rust
+> binary (`rust/`) is now the canonical distribution**; the TypeScript
+> implementation stays in-repo as the reference the conformance suite is written
+> against. See [ROADMAP.md](ROADMAP.md) and the
 > [schema reference](docs/schema-reference.md).
 
 ## Install
@@ -36,29 +39,26 @@ git clone https://github.com/brolyssjl/agnosgram.git && ./agnosgram/install.sh
 ```
 
 Fetches the prebuilt binary for your platform from the latest GitHub release
-and puts it on `PATH` - no local Node required. Binaries have shipped since
-`0.9.0`: `linux-x64` and `darwin-arm64`. No matching binary yet? The script
-falls back to honest build-from-source steps instead of guessing. Full
-details: **[docs/install.md](docs/install.md)**.
+and puts it on `PATH` - no local Node, no local Rust toolchain required.
+Binaries have shipped since `0.9.0` (`linux-x64`, `darwin-arm64`) and are
+cargo-built from `1.0.0` onward. No matching binary yet? The script falls
+back to honest build-from-source steps instead of guessing.
 
-`agnosgram` is not published to npm yet - per the Milestone 6 decision (see
-[ROADMAP.md](ROADMAP.md)), prebuilt binaries are the canonical distribution
-and npm stays off the user-facing install path for now, so `npm i -g
-agnosgram` will 404 until that changes. Building from source or using npm
-(once published) both require Node ≥ 20; the binary path does not.
+`agnosgram` is not on npm and never will be - the Milestone 6 owner decision
+(see [ROADMAP.md](ROADMAP.md)) makes prebuilt binaries the permanent
+user-facing install path.
 
-### Read-only global npm prefix (nix, managed machines)
+Build from source instead - zero external crates, only a stable Rust
+toolchain required:
 
-If your npm global prefix is read-only (nix-managed Node, some managed
-corporate machines), `npm install -g` fails against that prefix and npm's
-error tells you to run as root - misleading, since the real problem is the
-read-only prefix, not permissions `sudo` can fix. Two options that actually
-work:
+```bash
+cargo build --release --manifest-path rust/Cargo.toml
+# -> rust/target/release/agnosgram
+```
 
-- Use `install.sh` above - it never touches the npm global prefix.
-- Point npm at a writable prefix you own, once `agnosgram` is on npm:
-  `NPM_CONFIG_PREFIX=$HOME/.npm-global npm i -g agnosgram`, then add
-  `export PATH="$HOME/.npm-global/bin:$PATH"` to your shell profile.
+Contributors working on the TypeScript reference implementation still need
+Node >= 20: `npm run build && node dist/cli.js --help`. Full details on both
+paths: **[docs/install.md](docs/install.md)**.
 
 ## Quick start
 
@@ -143,13 +143,14 @@ format. Full field-by-field contract: **[docs/schema-reference.md](docs/schema-r
 
 ## Status & roadmap
 
-Milestones 1-5 are done and dogfooded: capture (`init` / `adapt` / `log`), the
+Milestones 1-5 plus the Milestone 6 Rust port are done and dogfooded: capture
+(`init` / `adapt` / `log`), the
 self-maintaining half (`doctor` / `distill` / `bootstrap`), retrieval (`pack` /
 `show` / `advise`), reach (adapters, Claude Code hooks, install.sh + binaries,
-SDD coexistence), and the reflexive loop (`feedback` / `reflect`), with the
-on-disk format frozen at version 1. Milestone 6 - the Rust port that becomes
-`1.0.0` - is underway. Full plan with progress checkboxes and release
-checkpoints: **[ROADMAP.md](ROADMAP.md)**.
+SDD coexistence), the reflexive loop (`feedback` / `reflect`), and the Rust
+port, with the on-disk format frozen at version 1. Round 3 (post-`1.0.0`
+hardening: upgrade story, daily-driver soak, docs site) is next. Full plan
+with progress checkboxes and release checkpoints: **[ROADMAP.md](ROADMAP.md)**.
 
 **`0.5.0`** was the first release safe to adopt on a real project: frontmatter
 schema validation, `doctor`, `distill`, and a frozen on-disk format.
@@ -159,10 +160,12 @@ opt-in Claude Code hooks, `install.sh` + prebuilt binaries, and deeper SDD
 coexistence. **`0.10.0`** was Milestone 5, the reflexive loop:
 `feedback` captures tool friction into a separate, additive `meta/` namespace;
 `reflect` turns it into proposals - the tool proposes, a human decides.
-**`0.11.0`** (this release) opens Milestone 6: the CLI surface is frozen as
-the Rust port contract (DEC-0004), enforced by the conformance suite
-(`npm run conformance` against `$AGNOSGRAM_BIN`). `1.0.0` is the Rust port
-itself, after a real-world soak on a real project.
+**`0.11.0`** opened Milestone 6: the CLI surface frozen as the Rust port
+contract (DEC-0004), enforced by the conformance suite (`npm run conformance`
+against `$AGNOSGRAM_BIN`). **`1.0.0`** ships the Rust port itself, straight
+from the merged Round 2 conformance evidence (104/104 on `linux-x64` and
+`darwin-arm64`) with no rc cycle - the Rust binary is now the canonical
+distribution, and the TypeScript implementation remains in-repo as reference.
 
 ## How it compares
 
