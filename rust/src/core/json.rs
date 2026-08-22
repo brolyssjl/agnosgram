@@ -70,6 +70,7 @@ impl Value {
         }
     }
 
+    #[cfg(test)]
     pub fn as_array(&self) -> Option<&[Value]> {
         match self {
             Value::Array(items) => Some(items.as_slice()),

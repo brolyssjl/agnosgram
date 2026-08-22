@@ -109,12 +109,12 @@ tests, runs the bench gate, and creates a GitHub release with auto-generated not
 
 To cut a release:
 
-1. On a branch, bump `version` in `package.json` and tick the milestone's items in
-   `ROADMAP.md`. Open + merge the PR.
+1. On a branch, bump `version` in `package.json` and `rust/Cargo.toml` in lockstep,
+   and tick the milestone's items in `ROADMAP.md`. Open + merge the PR.
 2. Tag `main` and push the tag:
    ```bash
-   git tag v0.5.0
-   git push origin v0.5.0
+   git tag v1.0.1
+   git push origin v1.0.1
    ```
 3. The workflow publishes the GitHub release. A dormant `publish-npm` job exists
    behind `NPM_PUBLISH=true` + `NPM_TOKEN`, but per the Milestone 6 owner

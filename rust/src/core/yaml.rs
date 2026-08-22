@@ -26,6 +26,7 @@ impl YamlValue {
         }
     }
 
+    #[cfg(test)]
     pub fn as_map(&self) -> Option<&[(String, YamlValue)]> {
         match self {
             YamlValue::Map(entries) => Some(entries.as_slice()),
@@ -33,6 +34,7 @@ impl YamlValue {
         }
     }
 
+    #[cfg(test)]
     pub fn as_array(&self) -> Option<&[YamlValue]> {
         match self {
             YamlValue::Array(items) => Some(items.as_slice()),
@@ -40,6 +42,7 @@ impl YamlValue {
         }
     }
 
+    #[cfg(test)]
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             YamlValue::Bool(b) => Some(*b),
@@ -47,6 +50,7 @@ impl YamlValue {
         }
     }
 
+    #[cfg(test)]
     pub fn as_i64(&self) -> Option<i64> {
         match self {
             YamlValue::Int(n) => Some(*n),
@@ -54,6 +58,7 @@ impl YamlValue {
         }
     }
 
+    #[cfg(test)]
     pub fn get(&self, key: &str) -> Option<&YamlValue> {
         self.as_map()?
             .iter()

@@ -44,16 +44,6 @@ impl OptionDef {
         }
     }
 
-    /// `{ type: "boolean" }` with no default - absent from `values` unless given.
-    pub fn boolean_no_default() -> Self {
-        OptionDef {
-            kind: OptType::Boolean,
-            short: None,
-            bool_default: None,
-            str_default: None,
-        }
-    }
-
     /// `{ type: "string" }`.
     pub fn string() -> Self {
         OptionDef {
@@ -64,16 +54,7 @@ impl OptionDef {
         }
     }
 
-    /// `{ type: "string", default: <default> }`.
-    pub fn string_with_default(default: impl Into<String>) -> Self {
-        OptionDef {
-            kind: OptType::Str,
-            short: None,
-            bool_default: None,
-            str_default: Some(default.into()),
-        }
-    }
-
+    #[cfg(test)]
     pub fn with_short(mut self, c: char) -> Self {
         self.short = Some(c);
         self
@@ -123,10 +104,6 @@ impl ParsedArgs {
             Some(ArgValue::Str(s)) => Some(s.as_str()),
             _ => None,
         }
-    }
-
-    pub fn is_present(&self, name: &str) -> bool {
-        self.values.contains_key(name)
     }
 }
 

@@ -14,11 +14,11 @@ lean on the tool*, not feature count.
 | Version | Gate | What it means for you |
 |---|---|---|
 | `0.1.0` | Milestone 1 (done) | Core capture works; installable from GitHub. Early. |
-| `0.2.0` | Published to npm | `npx agnosgram` / `npm i -g`. Still the M1 surface. |
+| ~~`0.2.0`~~ | ~~Published to npm~~ | ~~`npx agnosgram` / `npm i -g`. Still the M1 surface.~~ superseded by Milestone 6 (binaries, no npm) |
 | `0.5.0` (beta) | Milestone 2 done + format freeze | First release safe to adopt on a real - even legacy - project. Self-maintaining: schema-validated, `doctor` catches rot, `distill` curates. The format is frozen. |
 | `0.8.0` (RC) | Milestone 3 done | Feature-complete core incl. `advise` (the landmine-catcher) and `pack`/`show`. Release candidate. |
 | **`0.9.0`** | **Milestone 4 done** | **Reach**: every mainstream adapter, opt-in Claude Code hooks, `install.sh` + binaries, deeper SDD coexistence. Still pre-1.0 - the docs site and a real-project case study wait for the soak below. |
-| `1.0.0` | `0.9.0` + real-world soak | Dogfooded for months on a real (legacy) project. Stable CLI + format declared. |
+| `1.0.0` | Milestone 6 Rust port, shipped 2026-08-21 on Round 2 conformance | Rust implementation is canonical. CLI + format frozen (at 0.5.0). Distributed as prebuilt binaries. |
 | `1.x+` | Milestone 5 | Reflexive self-improvement loop and beyond. |
 
 **The "more stable, not quite 1.0" point you asked about is `0.5.0`** - the end of
@@ -38,9 +38,9 @@ plans - but capture and anti-rot are solid from `0.5.0`.
 - [x] Tier-1 token benchmark + CI regression gate
 - [x] Repo publish-ready: LICENSE, `prepare` script, GitHub Actions CI, README
 
-### → Publish `0.2.0` to npm (needs npm auth; owner-triggered)
-- [ ] Reserve `agnosgram` on npm + first `npm publish`
-- [ ] Verify `npx agnosgram init` on a clean machine
+### → ~~Publish `0.2.0` to npm (needs npm auth; owner-triggered)~~ superseded by Milestone 6 (binaries, no npm)
+- [ ] ~~Reserve `agnosgram` on npm + first `npm publish`~~
+- [ ] ~~Verify `npx agnosgram init` on a clean machine~~
 
 ## Milestone 2 - Anti-rot & curation · `0.5.0` (beta) ✅ done
 _Turns "a Markdown folder" into a self-maintaining store. Ends with a format freeze -

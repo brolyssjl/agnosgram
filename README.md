@@ -199,6 +199,8 @@ npm run bench     # Tier-1 token benchmark (add --check to gate in CI)
 npm run tier2     # Tier-2 end-to-end token eval (add --check to gate in CI)
 ```
 
+For the canonical (Rust) implementation development loop, see the [Rust implementation section in CONTRIBUTING.md](CONTRIBUTING.md#rust-implementation).
+
 ## License
 
 MIT

@@ -13,8 +13,11 @@ pub struct StoreRecord {
     /// Path relative to the project root, e.g. `.agnosgram/lessons/pitfalls.md`.
     pub file: String,
     /// Path relative to the store dir, e.g. `lessons/pitfalls.md`.
+    #[allow(dead_code)]
+    // populated for the TS StoreRecord shape; unread downstream (same in TS)
     pub store_rel: String,
     /// 1-based line of the record's opening `---` fence.
+    #[allow(dead_code)]
     pub line: usize,
 }
 
@@ -71,6 +74,7 @@ pub fn all_scopes_from(records: &[StoreRecord]) -> Vec<String> {
 }
 
 /// Every distinct scope tag used across the store's valid records, sorted.
+#[cfg(test)]
 pub fn all_scopes(root: &Path) -> Vec<String> {
     all_scopes_from(&load_records(root))
 }

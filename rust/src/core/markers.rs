@@ -92,6 +92,7 @@ pub fn upsert_managed_block(existing: &str, body: &str) -> String {
     format!("{}\n", collapse_newline_runs(&result).trim_end())
 }
 
+#[cfg(test)]
 pub fn has_managed_block(existing: &str) -> bool {
     !find_blocks(existing).is_empty()
 }
