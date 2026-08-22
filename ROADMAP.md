@@ -121,8 +121,37 @@ rather than release gates._
       `rust/tests/`)
 - [ ] Upgrade story: version-stamped managed blocks, `doctor` warns on
       stale artifacts, `adapt --refresh` shows a diff before updating
-- [ ] Soak: the real host projects run the Rust binaries daily
+- [ ] Soak: the real host projects run the Rust binaries daily, including
+      one gate → agnosgram RETRO-sync exercise run with both Rust
+      binaries together (audit RM-06)
+- [ ] Decide whether to go public / recruit at least one outside pilot
+      user (owner decision) (audit RM-03)
 - [ ] Docs site + case study (the 2026-07/08 constructflow soak writeup)
+
+## Fixes & improvements
+_Open items from the 2026-08-22 audit + remediation (PRs gate#11/#12,
+agnosgram#14, all merged) that aren't tied to a milestone above._
+- [ ] Cut `1.0.1`: `1.0.0` predates SHA256SUMS, so checksum-verified
+      installs only become real once the first post-#14 tag publishes it.
+      Small, do soon. (audit SEC-02 tail)
+- [ ] Wire the injection lint into the `pack` path: run the existing
+      `core/lint.rs` injection patterns over assembled `pack` output
+      before the `SessionStart` hook injects it - warn-and-mark or refuse
+      on hit (owner decision: which mode). Today the lint runs only in
+      manual `agnosgram doctor`. (audit SEC-07)
+- [ ] Scope the "automatic memory" claim per adapter in the README: state
+      explicitly that automatic context injection is Claude Code-only
+      (opt-in hooks) - every other adapter is instruction-driven.
+      (audit PUR-02)
+- [ ] Give the reflect cadence a tracked heartbeat: run `feedback`/
+      `reflect` at the end of every milestone/soak session and log
+      accept/reject per proposal, instead of relying on one historical
+      proof-of-concept (FRI-001/002/003). (audit RM-04)
+- [ ] Refresh `.agnosgram/context/architecture.md`: still describes the
+      Milestone-1 TS module map and never tracked Milestones 2-6 or the
+      Rust port. (found during PR #14 work)
+- [ ] Pin GitHub Actions to commit SHAs (owner decision: accept
+      tag-pinning risk, or pin and add update automation). (audit SEC-08)
 
 ## Deferred (not scheduled)
 Semantic search / embeddings · per-user private memory (`local/`) · monorepo nested
