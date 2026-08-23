@@ -134,12 +134,13 @@ agnosgram#14, all merged) that aren't tied to a milestone above._
 - [x] Cut `1.0.1`: `1.0.0` predates SHA256SUMS, so checksum-verified
       installs only become real once the first post-#14 tag publishes it.
       Small, do soon. (audit SEC-02 tail)
-- [ ] Wire the injection lint into the `pack` path: run the existing
+- [x] Wire the injection lint into the `pack` path: run the existing
       `core/lint.rs` injection patterns over assembled `pack` output
-      before the `SessionStart` hook injects it - warn-and-mark or refuse
-      on hit (owner decision: which mode). Today the lint runs only in
-      manual `agnosgram doctor`. (audit SEC-07)
-- [ ] Scope the "automatic memory" claim per adapter in the README: state
+      before the `SessionStart` hook injects it (owner decision:
+      warn-and-mark, not refuse - stderr warning + a reduced-trust banner
+      prefixing stdout, never redacted). `doctor`'s own lint is unchanged.
+      (audit SEC-07)
+- [x] Scope the "automatic memory" claim per adapter in the README: state
       explicitly that automatic context injection is Claude Code-only
       (opt-in hooks) - every other adapter is instruction-driven.
       (audit PUR-02)
@@ -147,11 +148,12 @@ agnosgram#14, all merged) that aren't tied to a milestone above._
       `reflect` at the end of every milestone/soak session and log
       accept/reject per proposal, instead of relying on one historical
       proof-of-concept (FRI-001/002/003). (audit RM-04)
-- [ ] Refresh `.agnosgram/context/architecture.md`: still describes the
+- [x] Refresh `.agnosgram/context/architecture.md`: still describes the
       Milestone-1 TS module map and never tracked Milestones 2-6 or the
       Rust port. (found during PR #14 work)
-- [ ] Pin GitHub Actions to commit SHAs (owner decision: accept
-      tag-pinning risk, or pin and add update automation). (audit SEC-08)
+- [x] Pin GitHub Actions to commit SHAs (owner decision: pin and add
+      update automation, not accept tag-pinning risk - see
+      `.github/dependabot.yml`). (audit SEC-08)
 
 ## Deferred (not scheduled)
 Semantic search / embeddings · per-user private memory (`local/`) · monorepo nested
