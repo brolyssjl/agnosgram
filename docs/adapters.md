@@ -17,6 +17,13 @@ content outside the `<!-- agnosgram:start -->` / `<!-- agnosgram:end -->` marker
 Golden-file tests (`src/commands/adapt.test.ts`) prove run-twice-is-identical for
 every adapter.
 
+**Every adapter here is instruction-driven, not automatic.** The pointer block
+tells the agent to read `.agnosgram/MEMORY.md` and follow its reading protocol -
+agnosgram never reads or writes agent context on its own behalf. The one exception
+is Claude Code with the separate, opt-in `agnosgram adapt --claude-hooks`, which
+installs `SessionStart`/`Stop` hooks that actually run `pack`/`log` for you. See
+[docs/claude-hooks.md](claude-hooks.md).
+
 ## Supported tools
 
 | Tool | `adapt` key | Target file | Detected by |

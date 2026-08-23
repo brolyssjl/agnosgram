@@ -104,6 +104,13 @@ Codex and OpenCode both read `AGENTS.md` natively, so `init`/`adapt` detect them
 of writing a duplicate file. See [docs/adapters.md](docs/adapters.md) for detection
 signals and per-tool notes.
 
+**Automatic context injection is Claude Code-only**, and only when you opt in with
+`agnosgram adapt --claude-hooks` (`SessionStart` runs `pack`, `Stop` runs `log` - see
+[docs/claude-hooks.md](docs/claude-hooks.md)). Every other adapter above, including
+plain `claude` without `--claude-hooks`, is instruction-driven: the pointer block
+tells the agent to read `.agnosgram/MEMORY.md` and follow its protocol itself.
+Agnosgram never injects memory into an agent that isn't reading its own hooks.
+
 ## Commands
 
 | Command | What it does |
