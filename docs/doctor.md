@@ -42,6 +42,8 @@ Run it in CI to keep memory healthy the same way you keep code healthy.
 | `source.missing` | a record's `source:` path does not exist under `.agnosgram/` (archived journal months in `journal/archive/` still resolve) |
 | `source.anchor` | a record's `source:` carries a `#L` line anchor, which breaks on the next append - reference the whole file |
 | `injection.*` | stored memory contains an imperative that could hijack an agent |
+| `status.stale` | the newest journal entry is dated after `state/status.md`'s recorded freshness - the journal moved on but status.md was never refreshed |
+| `distill.lag` | the journal has real entries but `lessons/pitfalls.md` and `lessons/conventions.md` were never distilled, or the newest journal entry runs more than ~30 days ahead of the newest distilled lesson |
 
 ## The safety lints
 
@@ -56,6 +58,29 @@ supply-chain surface:
 
 Both lean sensitive - a false positive is cheaper than a miss, and the human
 reviews each hit in the PR.
+
+## Recall freshness
+
+`pack`'s whole promise is that useful memory gets recalled at the start of a
+session - and that promise silently breaks when the surrounding discipline
+lapses: `status.md` stops being updated, or the journal fills up with real
+content that never gets curated into `lessons/`. Two warnings catch this
+before it costs a session:
+
+- **`status.stale`** compares the newest journal entry's date against
+  `state/status.md`'s own recorded freshness (the `MEMORY.md` freshness-table
+  row for it, falling back to the `Last updated:` line inside `status.md`
+  itself when the table has no row). Both are content dates, read from the
+  files themselves - never file mtimes, which git does not preserve across a
+  clone or checkout.
+- **`distill.lag`** fires once the journal has real entries (not just the
+  scaffold's commented-out example) but `lessons/pitfalls.md` and
+  `lessons/conventions.md` have zero records between them, or the newest
+  journal entry is more than ~30 days newer than the newest distilled lesson.
+
+Both suggest running `agnosgram distill` (and reviewing `status.md` by hand)
+as the fix. `pack` surfaces the same `status.stale` signal too - see
+[pack](pack.md#recall-freshness-note).
 
 ## Typical workflow
 

@@ -288,3 +288,56 @@ fn pack_budget_dash_1_gives_the_existing_validation_error_not_a_raw_parseargs_cr
         .stderr
         .contains("--budget must be a positive integer, got \"-1\""));
 }
+
+#[test]
+fn pack_output_on_a_fresh_disciplined_store_is_byte_identical_and_unmarked() {
+    let root = TempDir::new("agnos-pack-fresh");
+    init_store(root.path());
+    let status = fs::read_to_string(root.path().join(".agnosgram/state/status.md")).unwrap();
+    let res = run_cli(&["pack"], root.path());
+    assert_eq!(res.status, 0);
+    let expected = format!(
+        "# Agnosgram pack\n\n\n## state/status.md\n\n{}\n",
+        status.trim()
+    );
+    assert_eq!(res.stdout, expected);
+    assert!(
+        res.stderr.is_empty(),
+        "expected no stderr, got: {}",
+        res.stderr
+    );
+}
+
+#[test]
+fn pack_appends_a_recall_freshness_note_and_warns_when_status_md_lags_the_journal() {
+    let root = TempDir::new("agnos-pack-stale-recall");
+    init_store(root.path());
+    // Roll status.md's recorded freshness back in MEMORY.md's table, then
+    // append a real journal entry (dated today) via `agnosgram log`.
+    let memory_path = root.path().join(".agnosgram/MEMORY.md");
+    let memory = fs::read_to_string(&memory_path).unwrap();
+    let today_row = memory
+        .lines()
+        .find(|l| l.trim_start().starts_with("| state/status.md"))
+        .expect("expected a state/status.md freshness row");
+    let stale_row =
+        today_row.replacen(today_row.split('|').nth(2).unwrap().trim(), "2000-01-01", 1);
+    fs::write(&memory_path, memory.replace(today_row, &stale_row)).unwrap();
+
+    let log_res = run_cli(&["log", "--did", "soak test entry"], root.path());
+    assert_eq!(log_res.status, 0, "log failed: {}", log_res.stderr);
+
+    let res = run_cli(&["pack"], root.path());
+    assert_eq!(res.status, 0);
+    assert!(
+        res.stdout
+            .contains("status.md may be stale; newest journal entry is"),
+        "expected a recall-freshness note, got: {}",
+        res.stdout
+    );
+    assert!(
+        res.stderr.contains("status.md may be stale"),
+        "expected a stderr warning, got: {}",
+        res.stderr
+    );
+}
