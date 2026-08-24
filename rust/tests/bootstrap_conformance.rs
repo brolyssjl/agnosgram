@@ -25,7 +25,7 @@ fn bootstrap_emits_a_prompt_targeting_context_files_and_detected_stack() {
 }
 
 #[test]
-fn fri_001_an_unknown_flag_gives_a_clean_usererror_not_a_raw_parseargs_crash() {
+fn an_unknown_flag_gives_a_clean_usererror_not_a_raw_parseargs_crash() {
     let root = setup();
     let res = run_cli(&["bootstrap", "--nope"], root.path());
     assert_ne!(res.status, 0);

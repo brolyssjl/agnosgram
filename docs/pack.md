@@ -32,6 +32,28 @@ then id** - the most trustworthy, most recently confirmed record first.
 directly by an agent working in that area, not bundled into every session
 start.
 
+## Injection lint (warn-and-mark)
+
+`pack` runs the store's existing injection-pattern lint (the same patterns
+`doctor` flags - instruction-override phrasing, role overrides, exfiltration
+imperatives, destructive shell commands) over the content it actually
+assembles into output: `state/status.md` plus every record that made it past
+the budget. It never refuses to pack and never redacts the match - the memory
+itself may still be exactly what an agent needs to see, so a false positive
+must not become a missing lesson.
+
+On a hit:
+- stderr gets one warning line per match, naming the source file (and record
+  id, when applicable).
+- stdout (the bundle a `SessionStart` hook injects as `additionalContext`) is
+  prefixed with a short banner naming the affected file(s) and stating that
+  the memory below should be treated with reduced trust.
+
+A clean store's output is byte-for-byte unchanged - no banner, no reserved
+budget headroom, no behavior difference from before this lint existed.
+`doctor`'s own lint (which scans the whole store, not just what `pack`
+assembles) is unaffected.
+
 ## The budget
 
 Whole records are dropped, never truncated mid-record, so what you get is

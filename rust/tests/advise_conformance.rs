@@ -74,7 +74,7 @@ fn advise_out_changes_the_report_path_referenced_in_the_prompt() {
 }
 
 #[test]
-fn fri_001_advise_out_dash_custom_json_accepts_a_dash_leading_path_not_a_crash() {
+fn advise_out_dash_custom_json_accepts_a_dash_leading_path_not_a_crash() {
     let root = setup();
     let res = run_cli(&["advise", "plan.md", "--out", "-custom.json"], root.path());
     assert_eq!(res.status, 0);

@@ -83,7 +83,7 @@ fn init_records_sdd_detection_into_config_driven_hints() {
 }
 
 #[test]
-fn fri_001_init_adapt_none_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
+fn init_adapt_none_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
     let root = TempDir::new("agnos-init");
     let res = run_cli(&["init", "--adapt", "-none"], root.path());
     assert_ne!(res.status, 0);

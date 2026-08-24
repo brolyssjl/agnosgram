@@ -104,6 +104,13 @@ Codex and OpenCode both read `AGENTS.md` natively, so `init`/`adapt` detect them
 of writing a duplicate file. See [docs/adapters.md](docs/adapters.md) for detection
 signals and per-tool notes.
 
+**Automatic context injection is Claude Code-only**, and only when you opt in with
+`agnosgram adapt --claude-hooks` (`SessionStart` runs `pack`, `Stop` runs `log` - see
+[docs/claude-hooks.md](docs/claude-hooks.md)). Every other adapter above, including
+plain `claude` without `--claude-hooks`, is instruction-driven: the pointer block
+tells the agent to read `.agnosgram/MEMORY.md` and follow its protocol itself.
+Agnosgram never injects memory into an agent that isn't reading its own hooks.
+
 ## Commands
 
 | Command | What it does |
@@ -115,7 +122,7 @@ signals and per-tool notes.
 | `agnosgram distill` | Emit a compaction prompt (merge via `supersedes:`, never append near-dups); `--validate <file>` checks a distilled result; `--archive <YYYY-MM>` retires an absorbed journal month. See [guide](docs/distill.md). |
 | `agnosgram bootstrap` | Emit a prompt that seeds `context/architecture.md` + `domain.md` from an existing codebase - fast onboarding for a legacy repo. See [guide](docs/bootstrap.md). |
 | `agnosgram show <topic>` | Print records matching an id, scope tag, or type - for agents with weak file navigation. `--type`, `--format json\|toon`. See [guide](docs/show.md). |
-| `agnosgram pack` | Token-budgeted context bundle: status + lessons (+ decisions when `--scope`d). Human output is the Markdown bundle itself. `--scope`, `--budget`, `--format json\|toon`. See [guide](docs/pack.md). |
+| `agnosgram pack` | Token-budgeted context bundle: status + lessons (+ decisions when `--scope`d). Human output is the Markdown bundle itself. Runs the prompt-injection lint over assembled content - warns on stderr and marks stdout on a hit, never redacts. `--scope`, `--budget`, `--format json\|toon`. See [guide](docs/pack.md). |
 | `agnosgram advise <plan-path>` | Emit a plan-vs-memory contradiction review prompt; `--validate <report>` mechanically checks the agent's JSON report. `--strict`, `--format json\|toon`. See [guide](docs/advise.md). |
 | `agnosgram feedback "<text>"` | Capture tool friction into `.agnosgram/meta/` - never host-project memory, never read by `pack`/`show`/`advise`. `--scope`, `--confidence`, `--stdin`, `--share` (prints a ready-to-run `gh issue create` command; never runs it). See [guide](docs/feedback.md). |
 | `agnosgram reflect` | Emit a prompt turning tool friction + recent journal months into improvement proposals and candidate roadmap milestones. Read-only; `ROADMAP.md` stays owner-edited. `--months`, `--format json\|toon`. See [guide](docs/reflect.md). |

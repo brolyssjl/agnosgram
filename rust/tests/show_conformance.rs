@@ -98,7 +98,7 @@ fn invalid_type_throws_a_usage_error() {
 }
 
 #[test]
-fn fri_001_show_type_dash_bogus_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
+fn show_type_dash_bogus_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
     let root = setup();
     let res = run_cli(&["show", "tooling", "--type", "-bogus"], root.path());
     assert_ne!(res.status, 0);

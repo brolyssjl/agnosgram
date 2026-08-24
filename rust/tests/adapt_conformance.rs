@@ -12,7 +12,7 @@ fn setup() -> TempDir {
 }
 
 #[test]
-fn fri_001_a_dash_leading_positional_gives_a_clean_usererror_not_a_raw_parseargs_crash() {
+fn a_dash_leading_positional_gives_a_clean_usererror_not_a_raw_parseargs_crash() {
     let root = setup();
     let res = run_cli(&["adapt", "-claude"], root.path());
     assert_ne!(res.status, 0);
@@ -20,7 +20,7 @@ fn fri_001_a_dash_leading_positional_gives_a_clean_usererror_not_a_raw_parseargs
 }
 
 #[test]
-fn fri_003_claude_md_symlinked_to_agents_md_reports_one_honest_write_not_two() {
+fn claude_md_symlinked_to_agents_md_reports_one_honest_write_not_two() {
     let root = setup();
     symlink("AGENTS.md", root.path().join("CLAUDE.md")).unwrap();
 
@@ -46,7 +46,7 @@ fn fri_003_claude_md_symlinked_to_agents_md_reports_one_honest_write_not_two() {
 }
 
 #[test]
-fn fri_003_the_reverse_symlink_direction_is_also_honest() {
+fn the_reverse_symlink_direction_is_also_honest() {
     let root = setup();
     symlink("CLAUDE.md", root.path().join("AGENTS.md")).unwrap();
 
@@ -58,7 +58,7 @@ fn fri_003_the_reverse_symlink_direction_is_also_honest() {
 }
 
 #[test]
-fn fri_003_json_reports_the_write_once_with_the_symlinked_adapter_as_an_alias() {
+fn json_reports_the_write_once_with_the_symlinked_adapter_as_an_alias() {
     let root = setup();
     symlink("AGENTS.md", root.path().join("CLAUDE.md")).unwrap();
 

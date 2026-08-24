@@ -56,7 +56,7 @@ fn doctor_without_a_store_gives_a_clean_usererror() {
 }
 
 #[test]
-fn fri_001_doctor_format_dash_json_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
+fn doctor_format_dash_json_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
     let root = setup();
     let res = run_cli(&["doctor", "--format", "-json"], root.path());
     assert_ne!(res.status, 0);

@@ -19,7 +19,7 @@ A fact belongs in exactly one place; the other side links to it.
 | File | Last verified | Budget |
 |------|---------------|--------|
 | state/status.md | 2026-07-30 | 400 tokens |
-| context/architecture.md | 2026-07-21 | 1500 tokens |
+| context/architecture.md | 2026-08-23 | 1500 tokens |
 | context/stack.md | 2026-07-21 | 800 tokens |
 | context/domain.md | 2026-07-21 | 1000 tokens |
 | lessons/pitfalls.md | 2026-07-27 | 1000 tokens |

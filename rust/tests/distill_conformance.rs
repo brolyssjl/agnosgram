@@ -79,8 +79,7 @@ fn distill_archive_rejects_a_bad_month_argument() {
 }
 
 #[test]
-fn fri_001_distill_archive_dash_2026_08_gives_the_existing_validation_error_not_a_raw_parseargs_crash(
-) {
+fn distill_archive_dash_2026_08_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
     let root = setup();
     let res = run_cli(&["distill", "--archive", "-2026-08"], root.path());
     assert_ne!(res.status, 0);
