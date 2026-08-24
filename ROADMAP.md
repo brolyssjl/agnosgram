@@ -147,13 +147,25 @@ agnosgram#14, all merged) that aren't tied to a milestone above._
 - [ ] Give the reflect cadence a tracked heartbeat: run `feedback`/
       `reflect` at the end of every milestone/soak session and log
       accept/reject per proposal, instead of relying on one historical
-      proof-of-concept (FRI-001/002/003). (audit RM-04)
+      proof-of-concept (FRI-001/002/003). (audit RM-04) - first real cadence
+      run 2026-08-24 in both host projects (constructflow-web,
+      constructflow-api): each filed friction via `feedback`, ran `reflect`,
+      and synthesized accept/reject proposals (see the soak reports). Still
+      open - this is a recurring practice to keep running, not a one-shot.
 - [x] Refresh `.agnosgram/context/architecture.md`: still describes the
       Milestone-1 TS module map and never tracked Milestones 2-6 or the
       Rust port. (found during PR #14 work)
 - [x] Pin GitHub Actions to commit SHAs (owner decision: pin and add
       update automation, not accept tag-pinning risk - see
       `.github/dependabot.yml`). (audit SEC-08)
+- [x] Recall-freshness warnings: `doctor` gained `status.stale` (journal
+      outpacing status.md's recorded freshness) and `distill.lag` (real
+      journal content never distilled), and `pack` appends a matching
+      compact note - both soak agents independently ranked this the
+      highest-impact finding of the 2026-08-24 soak (soak FRI-004,
+      FRI-007/FRI-008). Also scoped the `reflect` prompt template to be
+      host-generic, removing dangling `ROADMAP.md`/`CON-003` references
+      that only make sense in this repo's own store (soak FRI-005).
 
 ## Deferred (not scheduled)
 Semantic search / embeddings · per-user private memory (`local/`) · monorepo nested
