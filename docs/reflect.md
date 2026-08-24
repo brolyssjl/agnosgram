@@ -27,7 +27,7 @@ agnosgram reflect --json         # same prompt, wrapped in a versioned envelope
   whether it rises to a candidate roadmap milestone.
 - The rule below, verbatim.
 
-## The rule: `ROADMAP.md` is owner-edited
+## The rule: durable records are owner-edited
 
 `reflect`'s prompt states this explicitly, and `reflect` itself performs no
 writes to the repo at all - it only reads `meta/friction.md` and journal
@@ -35,11 +35,19 @@ files:
 
 - Proposals go to stdout, or to a **new** file the human names, if they want
   a durable record.
-- The agent must never edit `ROADMAP.md`, or write to `lessons/`,
-  `decisions/`, `context/`, or `state/status.md` as a side effect of
-  reflecting.
+- The agent must never write proposals directly into any roadmap or planning
+  doc the host project keeps (in this repo, that's `ROADMAP.md` - but the
+  prompt itself names no specific file, since a host project may not keep
+  one at all), or write to `lessons/`, `decisions/`, `context/`, or
+  `state/status.md` as a side effect of reflecting.
 - The reflexive loop **proposes; it never disposes.** A human decides which
-  proposals become real roadmap items and edits `ROADMAP.md` themselves.
+  proposals get acted on and edits their own planning docs themselves.
+
+The prompt template is deliberately host-generic: it names only artifacts
+every `.agnosgram/` store has (`meta/friction.md`, `journal/`). Earlier
+versions cited this repo's own `ROADMAP.md` and a `CON-003` convention id as
+if every host store had them too - a dangling reference in any project that
+doesn't (see the friction filed during the 2026-08-24 soak).
 
 See `.agnosgram/decisions/0003-human-in-the-loop-reflexive-loop.md` for the
 full guarantee this command is built to uphold.
