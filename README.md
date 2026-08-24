@@ -29,9 +29,9 @@ API keys, no network after install. Any agent that can read a file can use it.
 curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh | bash
 ```
 
-While this repository is private, the unauthenticated one-liner 404s (both
-the raw script and the release assets). Run the script from a clone instead -
-it falls back to `gh release download`, which reuses your GitHub auth:
+If the plain download ever fails (rate limiting, a flaky network), run the
+script from a clone instead - it falls back to `gh release download`, which
+reuses your existing GitHub auth:
 
 ```bash
 git clone https://github.com/brolyssjl/agnosgram.git && ./agnosgram/install.sh
