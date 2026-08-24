@@ -133,7 +133,7 @@ fn reflect_rejects_a_months_with_trailing_junk_instead_of_silently_parsing_a_pre
 }
 
 #[test]
-fn fri_001_reflect_months_dash_1_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
+fn reflect_months_dash_1_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
     let root = setup();
     let res = run_cli(&["reflect", "--months", "-1"], root.path());
     assert_ne!(res.status, 0);

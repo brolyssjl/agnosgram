@@ -18,7 +18,7 @@ use crate::core::write_file::{write_if_changed, WriteAction, WriteOpts};
 pub type AdaptAction = WriteAction;
 
 /// Another adapter key collapsed into a result because their target path is
-/// a symlink resolving to the same real file (FRI-003).
+/// a symlink resolving to the same real file.
 #[derive(Clone, Debug)]
 pub struct SymlinkAlias {
     pub adapter: String,
@@ -221,9 +221,9 @@ fn group_by_symlink(root: &Path, keys: &[String]) -> Vec<Vec<String>> {
     groups
 }
 
-/// Apply one adapter, or a symlink-aliased group of adapters (FRI-003) that
-/// all resolve to the same real file - every adapter injects the same
-/// generic pointer body, so writing once through the non-symlink member is
+/// Apply one adapter, or a symlink-aliased group of adapters that all
+/// resolve to the same real file - every adapter injects the same generic
+/// pointer body, so writing once through the non-symlink member is
 /// equivalent to writing through every alias.
 fn apply_adapter_group(
     root: &Path,

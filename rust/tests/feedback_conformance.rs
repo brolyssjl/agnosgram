@@ -172,7 +172,7 @@ fn feedback_writes_only_under_agnosgram_meta_touching_no_other_file() {
 }
 
 #[test]
-fn fri_001_feedback_scope_dash_docs_accepts_a_dash_leading_but_otherwise_valid_tag_not_a_crash() {
+fn feedback_scope_dash_docs_accepts_a_dash_leading_but_otherwise_valid_tag_not_a_crash() {
     let root = setup();
     let res = run_cli(&["feedback", "some text", "--scope", "-docs"], root.path());
     assert_eq!(res.status, 0);

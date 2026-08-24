@@ -230,7 +230,7 @@ fn has_and_n_more_tail(s: &str) -> bool {
 }
 
 #[test]
-fn sec_07_pack_output_is_unchanged_when_the_store_has_no_injected_content() {
+fn pack_output_is_unchanged_when_the_store_has_no_injected_content() {
     let root = setup();
     let res = run_cli(&["pack"], root.path());
     assert_eq!(res.status, 0);
@@ -244,7 +244,7 @@ fn sec_07_pack_output_is_unchanged_when_the_store_has_no_injected_content() {
 }
 
 #[test]
-fn sec_07_pack_marks_and_warns_on_an_injected_lesson() {
+fn pack_marks_and_warns_on_an_injected_lesson() {
     let root = TempDir::new("agnos-pack-injection");
     init_store(root.path());
     write_store_file(
@@ -280,7 +280,7 @@ fn sec_07_pack_marks_and_warns_on_an_injected_lesson() {
 }
 
 #[test]
-fn fri_001_pack_budget_dash_1_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
+fn pack_budget_dash_1_gives_the_existing_validation_error_not_a_raw_parseargs_crash() {
     let root = setup();
     let res = run_cli(&["pack", "--budget", "-1"], root.path());
     assert_ne!(res.status, 0);

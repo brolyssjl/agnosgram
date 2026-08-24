@@ -46,7 +46,7 @@ fn log_with_no_slots_throws_a_helpful_error() {
 }
 
 #[test]
-fn fri_001_log_learned_dash_x_stores_the_literal_value_instead_of_crashing() {
+fn log_learned_dash_x_stores_the_literal_value_instead_of_crashing() {
     let root = setup();
     let res = run_cli(&["log", "--learned", "--x", "--json"], root.path());
     assert_eq!(res.status, 0);
