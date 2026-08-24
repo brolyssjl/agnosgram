@@ -87,7 +87,6 @@ reported; only propose what the sources below actually support.\n\
 - Recent journal months: {months_line}\n\
 \x20\x20Look for recurring `Avoid`/`Learned` lines that point at friction with the\n\
 \x20\x20tool itself, not the host project.\n\
-- Current roadmap: `ROADMAP.md` (read-only context - see the rule below).\n\
 \n\
 ## Digest: every friction entry currently captured\n\
 {digest}\n\
@@ -109,18 +108,20 @@ reported; only propose what the sources below actually support.\n\
 \x20\x20\x20- Candidate milestone: <yes/no - if yes, a one-line scope>\n\
 \x20\x20\x20```\n\
 \n\
-## Rule: ROADMAP.md is owner-edited (non-negotiable)\n\
+## Rule: durable records are owner-edited (non-negotiable)\n\
 Print your proposals to stdout for a human to read, or if asked to keep a\n\
 durable record, write them to a **new** file (e.g. a dated notes file the\n\
-human names) - never to `ROADMAP.md` directly, and never to `lessons/`,\n\
-`decisions/`, `context/`, or `state/status.md`. This command proposes; it\n\
-never disposes. A human decides which proposals become real roadmap items and\n\
-edits `ROADMAP.md` themselves.\n\
+human names) - never directly into any roadmap or planning doc this project\n\
+may keep, and never into `lessons/`, `decisions/`, `context/`, or\n\
+`state/status.md`. This command proposes; it never disposes. A human decides\n\
+which proposals get acted on and edits their own planning docs themselves.\n\
 \n\
 ## When done\n\
 Nothing to validate mechanically - this is a proposal, not a schema-checked\n\
-report. If a proposal implies a store or CLI change, remember any schema or\n\
-layout change must land together with a `doctor` change (CON-003).\n"
+report. If a proposal implies a schema or CLI-surface change to Agnosgram\n\
+itself, remember it must land together with a corresponding `doctor` check\n\
+update - that is Agnosgram's own convention, not one of this project's\n\
+`decisions/` records.\n"
     )
 }
 

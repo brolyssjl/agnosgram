@@ -54,6 +54,29 @@ budget headroom, no behavior difference from before this lint existed.
 `doctor`'s own lint (which scans the whole store, not just what `pack`
 assembles) is unaffected.
 
+## Recall-freshness note
+
+`pack` also checks the same signal as `doctor`'s `status.stale` warning: is
+the newest journal entry dated after `state/status.md`'s recorded freshness?
+If so - the discipline of refreshing `status.md` after real work landed has
+lapsed - `pack` appends one compact note to the bundle it hands back:
+
+```
+> **Note:** status.md may be stale; newest journal entry is 2026-08-24.
+```
+
+This is exactly the text a `SessionStart` hook injects as
+`additionalContext`, so the reading agent sees the caveat inline rather than
+silently trusting a `status.md` that no longer matches reality. A matching
+line is also written to stderr. The note's token cost is reserved in the
+budget the same way the injection banner's is, so it never gets budgeted out
+by a store's own content.
+
+A store where the discipline hasn't lapsed (no journal entries yet, or
+`status.md` at least as fresh as the journal) produces byte-for-byte the same
+output as before this note existed - no reserved headroom, no behavior
+difference.
+
 ## The budget
 
 Whole records are dropped, never truncated mid-record, so what you get is

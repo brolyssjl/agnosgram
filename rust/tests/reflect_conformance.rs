@@ -19,20 +19,29 @@ fn write_friction(root: &TempDir, body: &str) {
 }
 
 #[test]
-fn reflect_emits_a_prompt_naming_friction_journal_months_and_the_roadmap_rule() {
+fn reflect_emits_a_prompt_naming_friction_journal_months_and_the_ownership_rule() {
     let root = setup();
     let res = run_cli(&["reflect"], root.path());
     assert_eq!(res.status, 0);
     assert!(res.stdout.contains("reflect task"));
     assert!(res.stdout.contains("meta/friction.md"));
-    assert!(
-        res.stdout.contains("ROADMAP.md is owner-edited") || res.stdout.contains("owner-edited")
-    );
-    assert!(
-        res.stdout.contains("never to `ROADMAP.md` directly")
-            || res.stdout.contains("never applied automatically")
-            || res.stdout.contains("never disposes")
-    );
+    assert!(res.stdout.contains("owner-edited"));
+    assert!(res.stdout.contains("never disposes"));
+}
+
+/// `ROADMAP.md` and the `CON-003` convention id are Agnosgram's own
+/// source-repo artifacts, not part of a host project's `.agnosgram/` store -
+/// a fixture store like `setup()` has neither. The prompt template must not
+/// cite them as if they were host-store content (see the friction filed
+/// during the 2026-08-24 soak).
+#[test]
+fn reflect_prompt_names_no_agnosgram_repo_specific_artifacts() {
+    let root = setup();
+    let res = run_cli(&["reflect"], root.path());
+    assert_eq!(res.status, 0);
+    assert!(!root.path().join("ROADMAP.md").exists());
+    assert!(!res.stdout.contains("ROADMAP.md"));
+    assert!(!res.stdout.contains("CON-003"));
 }
 
 #[test]

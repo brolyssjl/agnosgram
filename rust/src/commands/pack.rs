@@ -19,6 +19,7 @@ use std::path::Path;
 use crate::commands::show::flat_record_to_value;
 use crate::core::args::{parse_cli_args, ArgsConfig, OptionDef};
 use crate::core::config::load_config;
+use crate::core::freshness::{newest_journal_entry_date, status_freshness_date};
 use crate::core::json::Value;
 use crate::core::lint::{injection_patterns, scan_patterns};
 use crate::core::output::{print_structured, warn, UserError};
@@ -27,6 +28,7 @@ use crate::core::records::{
     compare_records, load_records, matches_scope, render_record_block, to_flat_record, StoreRecord,
 };
 use crate::core::serialize::{resolve_format, FormatFlags, ResolvedFormat};
+use crate::core::store::read_store;
 use crate::core::tokens::estimate_tokens;
 
 /// Project-relative path of `state/status.md`, matching the `.agnosgram/...`
@@ -34,6 +36,26 @@ use crate::core::tokens::estimate_tokens;
 /// across commands.
 fn status_md_rel() -> String {
     format!("{MEMORY_DIR}/state/status.md")
+}
+
+/// Journal-vs-status recall-freshness signal (see `doctor`'s `status.stale`
+/// check, which shares this logic): `Some((newest journal date, status.md's
+/// recorded freshness date))` only when the journal is genuinely ahead of
+/// what `status.md` claims. On a store where the discipline hasn't lapsed
+/// this is `None` and `pack`'s output is unaffected.
+fn recall_staleness(root: &Path) -> Option<(String, String)> {
+    let store = read_store(root);
+    let journal_date = newest_journal_entry_date(&store)?;
+    let status_date = status_freshness_date(&store)?;
+    if journal_date.as_str() > status_date.as_str() {
+        Some((journal_date, status_date))
+    } else {
+        None
+    }
+}
+
+fn render_recall_note(journal_date: &str) -> String {
+    format!("> **Note:** status.md may be stale; newest journal entry is {journal_date}.")
 }
 
 /// Output-schema version for `pack --json` (independent of the store format version).
@@ -280,6 +302,26 @@ fn build_pack<'a>(
     };
     let status_block = format!("## state/status.md\n\n{status}\n");
 
+    // Recall-freshness note: computed up front (it depends only on store
+    // metadata, never on which candidates the budget admits), so - like the
+    // injection banner below - its reserve is known before the first
+    // simulate_pack pass and a fresh, disciplined store's output stays
+    // byte-identical to before this feature existed.
+    let recall = recall_staleness(root);
+    if let Some((journal_date, status_date)) = &recall {
+        warn(&format!(
+            "agnosgram: pack: status.md may be stale - newest journal entry is {journal_date}, \
+             status.md's recorded freshness is {status_date}"
+        ));
+    }
+    let recall_note = recall
+        .as_ref()
+        .map(|(journal_date, _)| render_recall_note(journal_date));
+    let note_reserve = recall_note
+        .as_ref()
+        .map(|t| estimate_tokens(t))
+        .unwrap_or(0);
+
     // Render each record block exactly once; the cached string funds both
     // the budget simulation and the final assembly below.
     let block_text: Vec<String> = candidates.iter().map(|r| render_record_block(r)).collect();
@@ -320,10 +362,10 @@ fn build_pack<'a>(
         &header,
         &status_block,
         budget,
-        banner_reserve,
+        banner_reserve + note_reserve,
     );
     if !omitted.is_empty() {
-        let reserve = banner_reserve + max_footer_reserve(&candidates);
+        let reserve = banner_reserve + note_reserve + max_footer_reserve(&candidates);
         let sim = simulate_pack(
             &candidates,
             &block_text,
@@ -339,6 +381,9 @@ fn build_pack<'a>(
 
     if !omitted.is_empty() {
         sections.push(render_omitted_footer(&omitted));
+    }
+    if let Some(note) = &recall_note {
+        sections.push(note.clone());
     }
 
     // Real scan: only over what actually made it into the assembled output
@@ -645,6 +690,70 @@ mod tests {
         let result = build_pack(&root, 1, None, &records).expect("build_pack");
         assert!(result.omitted.iter().any(|r| r.frontmatter.id == "LES-004"));
         assert!(!result.markdown.contains("Warning"));
+        fs::remove_dir_all(&root).ok();
+    }
+
+    fn write_memory(root: &Path, status_last_verified: &str) {
+        fs::write(
+            root.join(".agnosgram/MEMORY.md"),
+            format!(
+                "## Freshness\n| File | Last verified | Budget |\n|---|---|---|\n| state/status.md | {status_last_verified} | 400 tokens |\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    fn write_journal(root: &Path, month: &str, heading_date: &str) {
+        fs::create_dir_all(root.join(".agnosgram/journal")).unwrap();
+        fs::write(
+            root.join(format!(".agnosgram/journal/{month}.md")),
+            format!("# Journal - {month}\n\n## {heading_date} 10:00 \u{b7} claude\n- **Did:** something\n"),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn build_pack_appends_a_recall_note_when_status_is_stale() {
+        let root = tmp_pack_root("recall-stale");
+        write_status(&root, "# Status\n\nAll good.\n");
+        write_memory(&root, "2026-07-01");
+        write_journal(&root, "2026-08", "2026-08-24");
+        let result = build_pack(&root, 2000, None, &[]).expect("build_pack");
+        assert!(
+            result
+                .markdown
+                .contains("status.md may be stale; newest journal entry is 2026-08-24."),
+            "{}",
+            result.markdown
+        );
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn build_pack_stays_unmarked_when_status_is_as_fresh_as_the_journal() {
+        let root = tmp_pack_root("recall-fresh");
+        write_status(&root, "# Status\n\nAll good.\n");
+        write_memory(&root, "2026-08-24");
+        write_journal(&root, "2026-08", "2026-08-24");
+        let result = build_pack(&root, 2000, None, &[]).expect("build_pack");
+        assert!(
+            !result.markdown.contains("may be stale"),
+            "{}",
+            result.markdown
+        );
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn build_pack_on_a_store_with_no_journal_or_memory_md_is_unmarked() {
+        let root = tmp_pack_root("recall-none");
+        write_status(&root, "# Status\n\nAll good.\n");
+        let result = build_pack(&root, 2000, None, &[]).expect("build_pack");
+        assert!(
+            !result.markdown.contains("may be stale"),
+            "{}",
+            result.markdown
+        );
         fs::remove_dir_all(&root).ok();
     }
 }

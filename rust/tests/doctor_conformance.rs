@@ -2,6 +2,7 @@
 //! `tests/CONFORMANCE_MAP.md`.
 mod common;
 use common::{init_store, run_cli, write_store_file, Json, TempDir};
+use std::fs;
 
 fn setup() -> TempDir {
     let root = TempDir::new("agnos-doctor-conf");
@@ -61,4 +62,48 @@ fn doctor_format_dash_json_gives_the_existing_validation_error_not_a_raw_parsear
     let res = run_cli(&["doctor", "--format", "-json"], root.path());
     assert_ne!(res.status, 0);
     assert!(res.stderr.contains("unknown --format \"-json\""));
+}
+
+#[test]
+fn doctor_flags_distill_lag_once_the_journal_has_real_entries_but_nothing_was_distilled() {
+    let root = setup();
+    let log = run_cli(&["log", "--did", "soak test entry"], root.path());
+    assert_eq!(log.status, 0, "log failed: {}", log.stderr);
+
+    let res = run_cli(&["doctor"], root.path());
+    assert_eq!(
+        res.status, 0,
+        "warnings alone should not fail without --strict"
+    );
+    assert!(res.stdout.contains("distill.lag"), "{}", res.stdout);
+    assert!(res.stdout.contains("agnosgram distill"), "{}", res.stdout);
+}
+
+#[test]
+fn doctor_flags_status_stale_when_the_journal_outpaces_status_mds_recorded_freshness() {
+    let root = setup();
+    let memory_path = root.path().join(".agnosgram/MEMORY.md");
+    let memory = fs::read_to_string(&memory_path).unwrap();
+    let today_row = memory
+        .lines()
+        .find(|l| l.trim_start().starts_with("| state/status.md"))
+        .expect("expected a state/status.md freshness row");
+    let stale_row =
+        today_row.replacen(today_row.split('|').nth(2).unwrap().trim(), "2000-01-01", 1);
+    fs::write(&memory_path, memory.replace(today_row, &stale_row)).unwrap();
+
+    let log = run_cli(&["log", "--did", "soak test entry"], root.path());
+    assert_eq!(log.status, 0, "log failed: {}", log.stderr);
+
+    let res = run_cli(&["doctor"], root.path());
+    assert!(res.stdout.contains("status.stale"), "{}", res.stdout);
+}
+
+#[test]
+fn doctor_on_a_fresh_store_with_no_journal_entries_never_flags_recall_freshness() {
+    let root = setup();
+    let res = run_cli(&["doctor"], root.path());
+    assert_eq!(res.status, 0);
+    assert!(!res.stdout.contains("status.stale"));
+    assert!(!res.stdout.contains("distill.lag"));
 }

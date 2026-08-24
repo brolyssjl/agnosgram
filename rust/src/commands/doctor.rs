@@ -8,7 +8,9 @@ use std::path::Path;
 use crate::core::args::{parse_cli_args, ArgsConfig, OptionDef};
 use crate::core::config::{load_config, AgnosgramConfig};
 use crate::core::dates::{days_between, today_iso};
-use crate::core::freshness::parse_freshness_table;
+use crate::core::freshness::{
+    newest_journal_entry_date, parse_freshness_table, status_freshness_date,
+};
 use crate::core::frontmatter::{
     extract_records, validate_record, Frontmatter, IssueLevel, KNOWN_TYPES,
 };
@@ -16,7 +18,7 @@ use crate::core::json::Value;
 use crate::core::lint::{injection_patterns, scan_patterns, secret_patterns};
 use crate::core::meta::KNOWN_META_TYPES;
 use crate::core::output::{info, print_structured, UserError};
-use crate::core::paths::{find_project_root, has_store, memory_dir};
+use crate::core::paths::{find_project_root, has_store, memory_dir, MEMORY_DIR};
 use crate::core::serialize::{resolve_format, FormatFlags, ResolvedFormat};
 use crate::core::store::{path_exists, read_store, StoreFile};
 use crate::core::tokens::estimate_tokens;
@@ -50,6 +52,11 @@ pub struct Finding {
 /// Similarity above which two same-type records are flagged as near-duplicates.
 const NEAR_DUP_THRESHOLD: f64 = 0.6;
 const MIN_DUP_WORDS: usize = 6;
+
+/// How many days the newest journal entry may run ahead of the newest
+/// distilled lesson before `distill.lag` fires - a discipline warning, not a
+/// hard rule, so it is a fixed constant rather than a `config.yml` knob.
+const DISTILL_LAG_DAYS: i64 = 30;
 
 struct KnownRecord {
     file: String,
@@ -422,7 +429,61 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
         }
     }
 
-    // 8. Safety lints: secrets (error) + prompt-injection imperatives (warn).
+    // 8. Recall freshness: does status.md's recorded freshness lag the
+    // journal, and has real journal content gone undistilled? Both are
+    // warnings, not errors - a lapse in discipline, not a broken store.
+    let newest_journal = newest_journal_entry_date(&store);
+    if let Some(journal_date) = &newest_journal {
+        if let Some(status_date) = status_freshness_date(&store) {
+            if journal_date.as_str() > status_date.as_str() {
+                findings.push(Finding {
+                    level: Level::Warn,
+                    code: "status.stale".to_string(),
+                    file: format!("{MEMORY_DIR}/state/status.md"),
+                    line: None,
+                    id: None,
+                    message: format!(
+                        "status.md may be stale; newest journal entry is {journal_date} but \
+                         status.md's recorded freshness is {status_date} - review and refresh it"
+                    ),
+                });
+            }
+        }
+
+        let lesson_dates: Vec<&str> = known
+            .iter()
+            .filter(|r| r.frontmatter.r#type == "pitfall" || r.frontmatter.r#type == "convention")
+            .map(|r| r.frontmatter.created.as_str())
+            .collect();
+        let newest_lesson = lesson_dates.iter().max().copied();
+        let lag_days = newest_lesson.map(|d| days_between(d, journal_date));
+        let lagging = lag_days.is_some_and(|days| days > DISTILL_LAG_DAYS);
+
+        if newest_lesson.is_none() || lagging {
+            let message = match newest_lesson {
+                None => format!(
+                    "journal has real entries (newest {journal_date}) but lessons/pitfalls.md \
+                     and lessons/conventions.md have never been distilled (0 records); run \
+                     `agnosgram distill`"
+                ),
+                Some(lesson_date) => format!(
+                    "newest journal entry ({journal_date}) is {} days newer than the newest \
+                     distilled lesson ({lesson_date}); run `agnosgram distill`",
+                    lag_days.expect("lagging implies lag_days is Some")
+                ),
+            };
+            findings.push(Finding {
+                level: Level::Warn,
+                code: "distill.lag".to_string(),
+                file: format!("{MEMORY_DIR}/lessons/pitfalls.md"),
+                line: None,
+                id: None,
+                message,
+            });
+        }
+    }
+
+    // 9. Safety lints: secrets (error) + prompt-injection imperatives (warn).
     let secret_pats = secret_patterns();
     let injection_pats = injection_patterns();
     for file in &store {
@@ -613,6 +674,24 @@ mod tests {
         fs::write(
             root.join(".agnosgram/lessons/pitfalls.md"),
             format!("# Pitfalls\n\n{body}"),
+        )
+        .unwrap();
+    }
+
+    fn write_journal(root: &Path, month: &str, heading_date: &str) {
+        fs::write(
+            root.join(format!(".agnosgram/journal/{month}.md")),
+            format!(
+                "# Journal - {month}\n\n## {heading_date} 10:00 \u{b7} claude \u{b7} feat/x\n- **Did:** something\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    fn write_conventions(root: &Path, body: &str) {
+        fs::write(
+            root.join(".agnosgram/lessons/conventions.md"),
+            format!("# Conventions\n\n{body}"),
         )
         .unwrap();
     }
@@ -823,6 +902,72 @@ mod tests {
             ),
         );
         assert!(codes(&root).contains(&"budget.over".to_string()));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_real_journal_entry_with_no_distilled_lessons_flags_distill_lag() {
+        let root = tmp_store("distill-lag-zero");
+        let month = journal_month_now();
+        write_journal(&root, &month, &iso_date());
+        let c = codes(&root);
+        assert!(c.contains(&"distill.lag".to_string()), "{c:?}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_journal_entry_far_newer_than_the_newest_lesson_flags_distill_lag() {
+        let root = tmp_store("distill-lag-old");
+        let month = journal_month_now();
+        write_journal(&root, &month, &iso_date());
+        write_pitfalls(&root, "---\nid: LES-001\ntype: pitfall\nscope: [x]\nconfidence: high\ncreated: 2000-01-01\nlast_verified: 2000-01-01\nsource: journal/2026-07.md\n---\nOld distilled lesson.\n");
+        let c = codes(&root);
+        assert!(c.contains(&"distill.lag".to_string()), "{c:?}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_recently_distilled_convention_keeps_distill_lag_clean() {
+        let root = tmp_store("distill-lag-fresh");
+        let month = journal_month_now();
+        let date = iso_date();
+        write_journal(&root, &month, &date);
+        write_conventions(&root, &format!("---\nid: CON-001\ntype: convention\nscope: [x]\nconfidence: high\ncreated: {date}\nlast_verified: {date}\nsource: journal/{month}.md\n---\nFresh convention.\n"));
+        let c = codes(&root);
+        assert!(!c.contains(&"distill.lag".to_string()), "{c:?}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_journal_entry_newer_than_status_mds_recorded_freshness_flags_status_stale() {
+        let root = tmp_store("status-stale");
+        let month = journal_month_now();
+        write_journal(&root, &month, &iso_date());
+        // Roll status.md's freshness-table row back so the journal entry is newer.
+        fs::write(root.join(".agnosgram/MEMORY.md"), memory_md("2000-01-01")).unwrap();
+        let c = codes(&root);
+        assert!(c.contains(&"status.stale".to_string()), "{c:?}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn status_md_as_fresh_as_the_journal_does_not_flag_status_stale() {
+        let root = tmp_store("status-fresh");
+        let month = journal_month_now();
+        let date = iso_date();
+        write_journal(&root, &month, &date);
+        write_conventions(&root, &format!("---\nid: CON-001\ntype: convention\nscope: [x]\nconfidence: high\ncreated: {date}\nlast_verified: {date}\nsource: journal/{month}.md\n---\nFresh convention.\n"));
+        let c = codes(&root);
+        assert!(!c.contains(&"status.stale".to_string()), "{c:?}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn no_real_journal_entries_never_flags_recall_freshness_checks() {
+        let root = tmp_store("no-journal");
+        let c = codes(&root);
+        assert!(!c.contains(&"status.stale".to_string()), "{c:?}");
+        assert!(!c.contains(&"distill.lag".to_string()), "{c:?}");
         fs::remove_dir_all(&root).unwrap();
     }
 
