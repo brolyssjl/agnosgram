@@ -54,16 +54,16 @@ download_asset() {
   else
     # /releases/latest/download/<asset> redirects straight to the current
     # release's asset - no need to resolve the tag via the (rate-limited)
-    # api.github.com first. Works unauthenticated once the repo is public.
+    # api.github.com first. Works unauthenticated.
     url="https://github.com/${REPO}/releases/latest/download/${asset}"
   fi
   if curl -fsSL "$url" -o "$dest"; then
     return 0
   fi
-  # While the repo is private, unauthenticated asset downloads 404 even when
-  # the asset exists. gh reuses your existing auth and sees the same assets.
+  # Fall back to gh if the plain download failed (rate limiting, a flaky
+  # network, or similar). gh reuses your existing auth and sees the same assets.
   if command -v gh >/dev/null 2>&1; then
-    echo "Direct download failed - retrying via gh (needed while the repo is private)..." >&2
+    echo "Direct download failed - retrying via gh..." >&2
     if gh release download ${tag:+"$tag"} --repo "$REPO" --pattern "$asset" --output "$dest" --clobber; then
       return 0
     fi
