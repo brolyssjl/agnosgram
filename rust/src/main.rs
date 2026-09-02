@@ -14,9 +14,12 @@ use core::output::{warn, UserError};
 /// and `package.json`.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Byte-for-byte copy of `src/cli.ts`'s `HELP` template literal, with
-/// `${ADAPTER_KEYS.join("|")}` already resolved to its frozen value
-/// (`claude|cursor|windsurf|cline|roo|agents`, see `src/adapters/index.ts`).
+/// Originally a byte-for-byte copy of `src/cli.ts`'s (retired) `HELP`
+/// template literal, with `${ADAPTER_KEYS.join("|")}` already resolved to
+/// its frozen value (`claude|cursor|windsurf|cline|roo|agents`, see
+/// `src/adapters/index.ts`); has since gained small Rust-only clarifications
+/// (e.g. the `doctor --strict` exit-code note, agnosgram#28) that have no TS
+/// counterpart to stay byte-identical with.
 const HELP: &str = r#"agnosgram - agent-agnostic, per-project memory (plain Markdown in your repo)
 
 Usage:
@@ -42,6 +45,7 @@ Commands:
             --claude-hooks installs opt-in SessionStart/Stop hooks + a skill.
   log       Append a journal entry (agents call this at session end).
   doctor    Lint the store: schema, staleness, budgets, links, ids, safety.
+            --strict fails (exit 1) on warnings alone, not just errors.
   distill   Emit a compaction prompt; validate a distilled result; archive months.
   bootstrap Emit a prompt seeding context/ from an existing codebase.
   show      Print records matching a topic (id, scope tag, or type).

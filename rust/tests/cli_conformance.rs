@@ -82,3 +82,18 @@ fn subcommand_help_prints_only_that_commands_usage_not_the_full_command_list() {
     assert!(!res.stdout.contains("Commands:"));
     assert!(!res.stdout.contains("agnosgram doctor "));
 }
+
+// agnosgram#28c: doctor --strict exits non-zero on warnings alone, which
+// reads as a pass at a glance ("0 error(s), N warning(s)") while the exit
+// code says fail - the top-level help text now documents that.
+#[test]
+fn help_documents_that_doctor_strict_fails_on_warnings_alone() {
+    let cwd = TempDir::new("agnos-cli-strict-doc");
+    let res = run_cli(&["--help"], cwd.path());
+    assert_eq!(res.status, 0);
+    assert!(
+        res.stdout.contains("--strict") && res.stdout.contains("warnings"),
+        "{}",
+        res.stdout
+    );
+}
