@@ -13,6 +13,9 @@
 # Env vars:
 #   AGNOSGRAM_INSTALL_DIR  where to install (default: $HOME/.local/bin)
 #   AGNOSGRAM_VERSION      pin a version, e.g. "1.0.0" (default: latest release)
+#   AGNOSGRAM_KEEP_OLD_INSTALLS  set to 1 to keep obsolete pre-Rust install
+#                          dirs (~/.local/share/brainstorm-tools/agnosgram-v*)
+#                          instead of removing them after a verified install
 #
 # Usage: curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh | bash
 set -euo pipefail
@@ -136,7 +139,35 @@ install_binary() {
   if installed_version="$("$INSTALL_DIR/$BIN_NAME" --version 2>/dev/null)"; then
     echo "Installed version: ${installed_version}"
   fi
+  clean_legacy_install_dirs
   return 0
+}
+
+# agnosgram predates this binary-release install path: an npm-era prototype
+# installed itself under ~/.local/share/brainstorm-tools/agnosgram-v*. That
+# path is dead (Milestone 6's TypeScript retirement) - a stale copy could
+# quietly shadow the binary this script just installed. The dirs match a
+# pattern only this installer ever created, so they are ours to remove.
+# Called only after a verified install succeeded, never as a pre-step; set
+# AGNOSGRAM_KEEP_OLD_INSTALLS=1 to keep them.
+clean_legacy_install_dirs() {
+  local legacy_root="$HOME/.local/share/brainstorm-tools"
+  local d
+  for d in "$legacy_root"/agnosgram-v*; do
+    [ -d "$d" ] || continue
+    if [ "${AGNOSGRAM_KEEP_OLD_INSTALLS:-}" = "1" ]; then
+      echo "Note: keeping obsolete pre-Rust install dir (AGNOSGRAM_KEEP_OLD_INSTALLS=1): ${d}"
+      continue
+    fi
+    if rm -rf "$d" 2>/dev/null; then
+      echo "Removed obsolete pre-Rust agnosgram install dir: ${d}"
+    else
+      echo "Note: could not remove obsolete install dir ${d} - safe to delete manually." >&2
+    fi
+  done
+  # Drop the shared root once the last tool's dir is gone; rmdir refuses a
+  # non-empty dir, so a sibling tool's leftovers keep it alive.
+  rmdir "$legacy_root" 2>/dev/null || true
 }
 
 print_source_fallback() {
