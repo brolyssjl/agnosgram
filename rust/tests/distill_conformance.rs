@@ -1,7 +1,7 @@
 //! Ported from `src/commands/distill.conformance.test.ts`. See
 //! `tests/CONFORMANCE_MAP.md`.
 mod common;
-use common::{current_journal_month, init_store, run_cli, write_store_file, TempDir};
+use common::{current_journal_month, init_store, run_cli, write_store_file, Json, TempDir};
 
 fn setup() -> TempDir {
     let root = TempDir::new("agnos-distill");
@@ -104,6 +104,147 @@ fn distill_archive_dash_2026_08_gives_the_existing_validation_error_not_a_raw_pa
     assert!(res
         .stderr
         .contains("--archive expects a YYYY-MM month, got \"-2026-08\""));
+}
+
+// agnosgram#28a: distill --validate accepts multiple file paths in one
+// invocation, validates each, and reports per-file.
+#[test]
+fn distill_validate_accepts_multiple_files_and_reports_on_each() {
+    let root = setup();
+    write_store_file(
+        root.path(),
+        "lessons/pitfalls.md",
+        "# Pitfalls\n\n---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA valid lesson.\n",
+    );
+    write_store_file(
+        root.path(),
+        "lessons/conventions.md",
+        "# Conventions\n\n---\nid: CON-001\ntype: convention\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA valid convention.\n",
+    );
+    let res = run_cli(
+        &[
+            "distill",
+            "--validate",
+            "lessons/pitfalls.md",
+            "lessons/conventions.md",
+        ],
+        root.path(),
+    );
+    assert_eq!(res.status, 0, "{}", res.stdout);
+    assert!(res.stdout.contains("lessons/pitfalls.md"));
+    assert!(res.stdout.contains("lessons/conventions.md"));
+}
+
+#[test]
+fn distill_validate_multiple_files_exits_non_zero_if_any_fail_but_still_reports_every_file() {
+    let root = setup();
+    write_store_file(
+        root.path(),
+        "lessons/pitfalls.md",
+        "# Pitfalls\n\n---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA valid lesson.\n",
+    );
+    write_store_file(
+        root.path(),
+        "lessons/conventions.md",
+        "# Conventions\n\n---\nid: bad\ntype: convention\n---\nbroken\n",
+    );
+    let res = run_cli(
+        &[
+            "distill",
+            "--validate",
+            "lessons/pitfalls.md",
+            "lessons/conventions.md",
+        ],
+        root.path(),
+    );
+    assert_eq!(res.status, 1);
+    assert!(res.stdout.contains("lessons/pitfalls.md: valid"));
+    assert!(res.stdout.contains("lessons/conventions.md"));
+    assert!(res.stdout.contains("error"));
+}
+
+#[test]
+fn distill_validate_json_with_multiple_files_returns_an_array() {
+    let root = setup();
+    write_store_file(
+        root.path(),
+        "lessons/pitfalls.md",
+        "# Pitfalls\n\n---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA valid lesson.\n",
+    );
+    write_store_file(
+        root.path(),
+        "lessons/conventions.md",
+        "# Conventions\n\n---\nid: CON-001\ntype: convention\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA valid convention.\n",
+    );
+    let res = run_cli(
+        &[
+            "distill",
+            "--validate",
+            "lessons/pitfalls.md",
+            "lessons/conventions.md",
+            "--json",
+        ],
+        root.path(),
+    );
+    assert_eq!(res.status, 0, "{}", res.stdout);
+    let parsed = Json::parse(&res.stdout);
+    let arr = parsed.as_array().expect("expected a JSON array");
+    assert_eq!(arr.len(), 2);
+    assert_eq!(
+        arr[0].get("file").and_then(Json::as_str),
+        Some(".agnosgram/lessons/pitfalls.md")
+    );
+    assert_eq!(
+        arr[1].get("file").and_then(Json::as_str),
+        Some(".agnosgram/lessons/conventions.md")
+    );
+}
+
+#[test]
+fn distill_validate_json_with_a_single_file_still_returns_a_bare_object() {
+    let root = setup();
+    write_store_file(
+        root.path(),
+        "lessons/pitfalls.md",
+        "# Pitfalls\n\n---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA valid lesson.\n",
+    );
+    let res = run_cli(
+        &["distill", "--validate", "lessons/pitfalls.md", "--json"],
+        root.path(),
+    );
+    assert_eq!(res.status, 0, "{}", res.stdout);
+    let parsed = Json::parse(&res.stdout);
+    assert_eq!(
+        parsed.get("file").and_then(Json::as_str),
+        Some(".agnosgram/lessons/pitfalls.md")
+    );
+}
+
+// agnosgram#28b: --validate reports an approximate token count against the
+// file's configured budget.
+#[test]
+fn distill_validate_reports_a_token_count_against_the_files_budget() {
+    let root = setup();
+    write_store_file(
+        root.path(),
+        "lessons/pitfalls.md",
+        "# Pitfalls\n\n---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA valid lesson.\n",
+    );
+    let res = run_cli(
+        &["distill", "--validate", "lessons/pitfalls.md"],
+        root.path(),
+    );
+    assert_eq!(res.status, 0);
+    assert!(res.stdout.contains("tokens"), "{}", res.stdout);
+    assert!(res.stdout.contains("/1000"), "{}", res.stdout);
+
+    let res_json = run_cli(
+        &["distill", "--validate", "lessons/pitfalls.md", "--json"],
+        root.path(),
+    );
+    let parsed = Json::parse(&res_json.stdout);
+    assert_eq!(parsed.get("budget").and_then(Json::as_f64), Some(1000.0));
+    assert!(parsed.get("tokens").and_then(Json::as_f64).unwrap() > 0.0);
 }
 
 #[test]

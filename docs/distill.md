@@ -12,6 +12,7 @@ result the agent writes back.
 agnosgram distill                              # print the compaction prompt
 agnosgram distill --json                       # same prompt, wrapped in JSON
 agnosgram distill --validate lessons/pitfalls.md   # check a distilled file
+agnosgram distill --validate lessons/pitfalls.md lessons/conventions.md  # check several at once
 agnosgram distill --archive 2026-07            # retire an absorbed journal month
 ```
 
@@ -38,16 +39,21 @@ Pipe it to your agent, e.g. `agnosgram distill | your-agent`, or paste it in.
 
 ### 2. Validate the result
 
-After the agent writes records, check each file it touched:
+After the agent writes records, check every file it touched in one call:
 
 ```bash
-agnosgram distill --validate lessons/pitfalls.md
+agnosgram distill --validate lessons/pitfalls.md lessons/conventions.md decisions/0005-x.md
 ```
 
-This verifies frontmatter schema, unique ids (within the file and against the rest
-of the store), and the file's token budget. It exits non-zero if anything is
-wrong, so it fits in a script. Run `agnosgram doctor --strict` for the full sweep
-(near-duplicates, staleness, links, safety).
+This verifies frontmatter schema, unique ids (within each file and against the
+rest of the store), and reports each file's approximate token count against its
+configured budget (e.g. `~412/1000 tokens`), even when it is well within
+budget - the same estimate `doctor`'s `budget.over` warning and `file.stale`
+check use. Each file is reported separately; if any file has errors the exit
+code is non-zero, so it fits in a script. `--json` returns a single object for
+one file, or an array of that same shape for several. Run
+`agnosgram doctor --strict` for the full sweep (near-duplicates, staleness,
+links, safety).
 
 ### 3. Archive absorbed months
 

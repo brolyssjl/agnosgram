@@ -105,7 +105,7 @@ what is already there. Do NOT invent facts; only distill what the sources suppor
 \n\
 ## Validate your result (mechanical, no LLM)\n\
 Run these and fix anything they report before finishing:\n\
-- `agnosgram distill --validate lessons/pitfalls.md` (repeat per file you touched)\n\
+- `agnosgram distill --validate <file> [<file> ...]` (every file you touched, in one call)\n\
 - `agnosgram doctor --strict` (also confirms MEMORY.md's Freshness table agrees with\n\
 \x20\x20status.md; see `freshness.mismatch` if it doesn't)\n\
 \n\
@@ -130,6 +130,14 @@ struct ValidateResult {
     errors: usize,
     warnings: usize,
     issues: Vec<ValidateIssue>,
+    /// `estimate_tokens` of the file's content, and its configured budget
+    /// (from `config.yml`'s `budgets`), when the file has one. `None` for
+    /// both when the file could not be read at all (see
+    /// `validate_batch_entry`'s synthetic "file.missing" result) - `Some(_)`
+    /// otherwise, even when `budget` itself is `None` (an unbudgeted file
+    /// still has a token count worth reporting; agnosgram#28).
+    tokens: Option<i64>,
+    budget: Option<i64>,
 }
 
 fn validate_file(root: &Path, rel_arg: &str) -> Result<ValidateResult, UserError> {
@@ -194,11 +202,19 @@ fn validate_file(root: &Path, rel_arg: &str) -> Result<ValidateResult, UserError
         }
     }
 
-    // Budget check when this file has a configured budget.
+    // Token report vs. this file's configured budget (agnosgram#28): always
+    // computed so `--validate` can close the loop on "how close am I", not
+    // just pass/fail - `budget.over` still only fires when it is actually
+    // exceeded.
     let config = load_config(root).map_err(|e| UserError::new(e.to_string()))?;
-    if let Some((_, budget)) = config.budgets.iter().find(|(k, _)| k == &store_rel) {
-        let tokens = estimate_tokens(&text);
-        if tokens > *budget {
+    let budget = config
+        .budgets
+        .iter()
+        .find(|(k, _)| k == &store_rel)
+        .map(|(_, b)| *b);
+    let tokens = estimate_tokens(&text);
+    if let Some(budget) = budget {
+        if tokens > budget {
             issues.push(ValidateIssue {
                 level: "error",
                 code: "budget.over".to_string(),
@@ -216,7 +232,65 @@ fn validate_file(root: &Path, rel_arg: &str) -> Result<ValidateResult, UserError
         errors,
         warnings,
         issues,
+        tokens: Some(tokens),
+        budget,
     })
+}
+
+/// One `--validate` target's outcome for batch mode: `validate_file`'s
+/// `Err` (a file that does not exist) becomes a synthetic result instead of
+/// aborting the rest of the batch, so `distill --validate a.md b.md` still
+/// reports on `b.md` when `a.md` is missing (agnosgram#28: "validate each,
+/// report per-file").
+fn validate_batch_entry(root: &Path, rel_arg: &str) -> ValidateResult {
+    match validate_file(root, rel_arg) {
+        Ok(result) => result,
+        Err(e) => {
+            let store_rel = rel_arg
+                .trim()
+                .strip_prefix(".agnosgram/")
+                .unwrap_or(rel_arg.trim())
+                .to_string();
+            ValidateResult {
+                file: format!(".agnosgram/{store_rel}"),
+                ok: false,
+                errors: 1,
+                warnings: 0,
+                issues: vec![ValidateIssue {
+                    level: "error",
+                    code: "file.missing".to_string(),
+                    line: None,
+                    message: e.0,
+                }],
+                tokens: None,
+                budget: None,
+            }
+        }
+    }
+}
+
+/// Human-readable rendering of one `ValidateResult`: issues (or "valid."),
+/// then a token-vs-budget line when a token count was computed at all
+/// (agnosgram#28b) - omitted for a file that could not even be read.
+fn render_validate_result(r: &ValidateResult) {
+    if r.issues.is_empty() {
+        info(&format!("{}: valid.", r.file));
+    } else {
+        for i in &r.issues {
+            let where_ = i.line.map(|l| format!(":{l}")).unwrap_or_default();
+            let level = if i.level == "error" { "error" } else { "warn " };
+            info(&format!("  {level} {}{where_}  {}", i.code, i.message));
+        }
+        info(&format!(
+            "\n{}: {} error(s), {} warning(s).",
+            r.file, r.errors, r.warnings
+        ));
+    }
+    match (r.tokens, r.budget) {
+        (Some(tokens), Some(budget)) => info(&format!("  ~{tokens}/{budget} tokens")),
+        (Some(tokens), None) => info(&format!("  ~{tokens} tokens (no budget configured)")),
+        (None, _) => {}
+    }
 }
 
 fn validate_result_to_json(r: &ValidateResult) -> Value {
@@ -225,6 +299,8 @@ fn validate_result_to_json(r: &ValidateResult) -> Value {
     out.insert("ok", r.ok);
     out.insert("errors", r.errors);
     out.insert("warnings", r.warnings);
+    out.insert("tokens", r.tokens);
+    out.insert("budget", r.budget);
     let mut issues = Value::array();
     for i in &r.issues {
         let mut o = Value::object();
@@ -272,12 +348,46 @@ fn is_year_month(s: &str) -> bool {
         && bytes[5..7].iter().all(|b| b.is_ascii_digit())
 }
 
+/// `--validate` is the one flag on the frozen surface that takes a variable
+/// number of values (agnosgram#28: batch validation), so it is pulled out by
+/// hand before the shared single-valued `core::args` parser ever sees the
+/// rest of argv. Every token immediately following `--validate` - and, for
+/// the `--validate=file` attached form, that one value - up to the next
+/// `-`-leading token or the end of argv, is a file to validate. Returns the
+/// collected files and the remaining argv (still routed through
+/// `parse_cli_args` for `--archive`/`--json` exactly as before).
+fn extract_validate_files(argv: &[String]) -> (Vec<String>, Vec<String>) {
+    let mut files: Vec<String> = Vec::new();
+    let mut rest: Vec<String> = Vec::new();
+    let mut i = 0usize;
+    while i < argv.len() {
+        let tok = &argv[i];
+        if let Some(value) = tok.strip_prefix("--validate=") {
+            files.push(value.to_string());
+            i += 1;
+            continue;
+        }
+        if tok == "--validate" {
+            i += 1;
+            while i < argv.len() && !argv[i].starts_with('-') {
+                files.push(argv[i].clone());
+                i += 1;
+            }
+            continue;
+        }
+        rest.push(tok.clone());
+        i += 1;
+    }
+    (files, rest)
+}
+
 pub fn run(argv: Vec<String>) -> Result<(), UserError> {
+    let (validate_files, rest) = extract_validate_files(&argv);
+
     let cfg = ArgsConfig::new(false)
-        .option("validate", OptionDef::string())
         .option("archive", OptionDef::string())
         .option("json", OptionDef::boolean(false));
-    let parsed = parse_cli_args(&argv, &cfg)?;
+    let parsed = parse_cli_args(&rest, &cfg)?;
 
     let root =
         find_project_root(&std::env::current_dir().map_err(|e| UserError::new(e.to_string()))?);
@@ -299,24 +409,34 @@ pub fn run(argv: Vec<String>) -> Result<(), UserError> {
         return Ok(());
     }
 
-    if let Some(validate_arg) = parsed.str("validate") {
-        let result = validate_file(&root, validate_arg.trim())?;
+    if !validate_files.is_empty() {
+        let results: Vec<ValidateResult> = validate_files
+            .iter()
+            .map(|f| validate_batch_entry(&root, f.trim()))
+            .collect();
+
         if parsed.bool("json") {
-            print_json(&validate_result_to_json(&result));
-        } else if result.issues.is_empty() {
-            info(&format!("{}: valid.", result.file));
-        } else {
-            for i in &result.issues {
-                let where_ = i.line.map(|l| format!(":{l}")).unwrap_or_default();
-                let level = if i.level == "error" { "error" } else { "warn " };
-                info(&format!("  {level} {}{where_}  {}", i.code, i.message));
+            if let [only] = results.as_slice() {
+                // Single-file --validate --json keeps printing a bare
+                // object, exactly as before batch support existed.
+                print_json(&validate_result_to_json(only));
+            } else {
+                let mut arr = Value::array();
+                for r in &results {
+                    arr.push(validate_result_to_json(r));
+                }
+                print_json(&arr);
             }
-            info(&format!(
-                "\n{}: {} error(s), {} warning(s).",
-                result.file, result.errors, result.warnings
-            ));
+        } else {
+            for (idx, r) in results.iter().enumerate() {
+                if idx > 0 {
+                    info("");
+                }
+                render_validate_result(r);
+            }
         }
-        if result.errors > 0 {
+
+        if results.iter().any(|r| r.errors > 0) {
             use std::io::Write;
             let _ = std::io::stdout().flush();
             std::process::exit(1);
@@ -400,6 +520,96 @@ mod tests {
         assert!(result.ok);
         assert_eq!(result.errors, 0);
         fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn validate_file_reports_a_token_count_against_its_configured_budget() {
+        // agnosgram#28b: --validate should surface ~N/M tokens even when the
+        // file is well within budget, not just when it is over.
+        let root = tmp_root("tokens");
+        fs::write(
+            root.join(".agnosgram/config.yml"),
+            crate::core::config::serialize_config(&default_config()),
+        )
+        .unwrap();
+        let body = "---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA valid lesson.\n";
+        fs::write(root.join(".agnosgram/lessons/pitfalls.md"), body).unwrap();
+        let result = validate_file(&root, "lessons/pitfalls.md").unwrap();
+        // default_config's budgets includes lessons/pitfalls.md: 1000 tokens.
+        assert_eq!(result.budget, Some(1000));
+        assert_eq!(result.tokens, Some(estimate_tokens(body)));
+        assert!(result.tokens.unwrap() < result.budget.unwrap());
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn validate_file_reports_tokens_with_no_budget_for_an_unbudgeted_file() {
+        let root = tmp_root("tokens-unbudgeted");
+        fs::create_dir_all(root.join(".agnosgram/decisions")).unwrap();
+        fs::write(
+            root.join(".agnosgram/config.yml"),
+            crate::core::config::serialize_config(&default_config()),
+        )
+        .unwrap();
+        let body = "---\nid: DEC-0001\ntype: decision\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nA decision.\n";
+        fs::write(root.join(".agnosgram/decisions/0001-x.md"), body).unwrap();
+        let result = validate_file(&root, "decisions/0001-x.md").unwrap();
+        assert_eq!(result.budget, None);
+        assert_eq!(result.tokens, Some(estimate_tokens(body)));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn validate_batch_entry_turns_a_missing_file_into_a_result_instead_of_erroring() {
+        let root = tmp_root("batch-missing");
+        let result = validate_batch_entry(&root, "lessons/nope.md");
+        assert!(!result.ok);
+        assert_eq!(result.errors, 1);
+        assert_eq!(result.tokens, None);
+        assert_eq!(result.budget, None);
+        assert!(result.issues.iter().any(|i| i.code == "file.missing"));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn extract_validate_files_collects_every_token_up_to_the_next_flag() {
+        let argv = vec![
+            "--validate".to_string(),
+            "a.md".to_string(),
+            "b.md".to_string(),
+            "--json".to_string(),
+        ];
+        let (files, rest) = extract_validate_files(&argv);
+        assert_eq!(files, vec!["a.md".to_string(), "b.md".to_string()]);
+        assert_eq!(rest, vec!["--json".to_string()]);
+    }
+
+    #[test]
+    fn extract_validate_files_supports_the_attached_equals_form() {
+        let argv = vec![
+            "--validate=a.md".to_string(),
+            "--archive".to_string(),
+            "2026-08".to_string(),
+        ];
+        let (files, rest) = extract_validate_files(&argv);
+        assert_eq!(files, vec!["a.md".to_string()]);
+        assert_eq!(rest, vec!["--archive".to_string(), "2026-08".to_string()]);
+    }
+
+    #[test]
+    fn extract_validate_files_returns_empty_when_validate_is_absent() {
+        let argv = vec!["--archive".to_string(), "2026-08".to_string()];
+        let (files, rest) = extract_validate_files(&argv);
+        assert!(files.is_empty());
+        assert_eq!(rest, argv);
+    }
+
+    #[test]
+    fn extract_validate_files_handles_a_single_file_same_as_before_batch_support() {
+        let argv = vec!["--validate".to_string(), "lessons/pitfalls.md".to_string()];
+        let (files, rest) = extract_validate_files(&argv);
+        assert_eq!(files, vec!["lessons/pitfalls.md".to_string()]);
+        assert!(rest.is_empty());
     }
 
     #[test]
