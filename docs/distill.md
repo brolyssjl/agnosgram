@@ -28,6 +28,11 @@ allocates fresh ones), and every file's token budget. Its core rules:
   leave two near-duplicate records side by side.
 - Ground every record in a source; do not invent facts.
 - Stay within the token budgets.
+- **If you touch `state/status.md` or any `lessons/*.md` file, also update its
+  row in `MEMORY.md`'s `## Freshness` table** (the `Last verified` column) to
+  today's date. That table - not the file's own dated line - is what
+  `doctor`'s `status.stale`/`file.stale` checks read; skipping it is the most
+  common way a distill run "passes" but `doctor --strict` still fails.
 
 Pipe it to your agent, e.g. `agnosgram distill | your-agent`, or paste it in.
 

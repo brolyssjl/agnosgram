@@ -311,7 +311,7 @@ fn build_pack<'a>(
     if let Some((journal_date, status_date)) = &recall {
         warn(&format!(
             "agnosgram: pack: status.md may be stale - newest journal entry is {journal_date}, \
-             status.md's recorded freshness is {status_date}"
+             recorded freshness (MEMORY.md's Freshness table) is {status_date}"
         ));
     }
     let recall_note = recall

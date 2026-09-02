@@ -20,6 +20,24 @@ fn distill_emits_a_compaction_prompt_naming_the_schema_and_rules() {
     assert!(res.stdout.contains("journal/"));
 }
 
+// agnosgram#27: the emitted prompt told the agent to refresh status.md and
+// lessons files but never named MEMORY.md's Freshness table as a required
+// output, so a literal-minded agent updated only the file itself and kept
+// failing `doctor --strict` on the table doctor actually reads.
+#[test]
+fn distill_prompt_names_memory_md_s_freshness_table_as_a_required_output() {
+    let root = setup();
+    let res = run_cli(&["distill"], root.path());
+    assert_eq!(res.status, 0);
+    assert!(res.stdout.contains("MEMORY.md"), "{}", res.stdout);
+    assert!(res.stdout.contains("Freshness"), "{}", res.stdout);
+    assert!(
+        res.stdout.contains("state/status.md") || res.stdout.contains("status.md"),
+        "{}",
+        res.stdout
+    );
+}
+
 #[test]
 fn distill_validate_passes_a_well_formed_file() {
     let root = setup();

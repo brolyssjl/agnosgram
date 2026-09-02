@@ -138,14 +138,30 @@ fn entry_heading_date(line: &str) -> Option<String> {
 /// already trusts), falling back to a dated `Last updated: YYYY-MM-DD` line
 /// inside `status.md` itself when the table carries no row for it.
 pub fn status_freshness_date(store: &[StoreFile]) -> Option<String> {
-    if let Some(memory_file) = store.iter().find(|f| f.store_rel == "MEMORY.md") {
-        if let Some(row) = parse_freshness_table(&memory_file.text)
-            .into_iter()
-            .find(|r| r.file == "state/status.md")
-        {
-            return Some(row.last_verified);
-        }
-    }
+    freshness_table_date_for(store, "state/status.md")
+        .or_else(|| status_own_last_updated_date(store))
+}
+
+/// `MEMORY.md`'s `## Freshness` table row for `file` alone (project-relative,
+/// e.g. `state/status.md`) - `None` when `MEMORY.md` is missing or carries no
+/// row for it. Used both by `status_freshness_date`'s primary source and by
+/// `doctor`'s `freshness.mismatch` check, which needs this signal kept apart
+/// from `status_own_last_updated_date` to compare the two instead of letting
+/// one silently fall back to the other.
+pub fn freshness_table_date_for(store: &[StoreFile], file: &str) -> Option<String> {
+    let memory_file = store.iter().find(|f| f.store_rel == "MEMORY.md")?;
+    parse_freshness_table(&memory_file.text)
+        .into_iter()
+        .find(|r| r.file == file)
+        .map(|r| r.last_verified)
+}
+
+/// `state/status.md`'s own `_Last updated: YYYY-MM-DD_` line, read directly -
+/// never falling back to `MEMORY.md`'s table. Paired with
+/// `freshness_table_date_for` so `doctor` can catch the disagreement a
+/// literal-minded agent produces when it refreshes this line without also
+/// updating the table `status_freshness_date` actually trusts.
+pub fn status_own_last_updated_date(store: &[StoreFile]) -> Option<String> {
     let status_file = store.iter().find(|f| f.store_rel == "state/status.md")?;
     last_updated_date(&status_file.text)
 }
@@ -239,6 +255,46 @@ mod tests {
     fn status_freshness_date_is_none_when_neither_signal_is_present() {
         let store = vec![store_file("state/status.md", "# Status\n\nno date here\n")];
         assert_eq!(status_freshness_date(&store), None);
+    }
+
+    #[test]
+    fn freshness_table_date_for_reads_only_the_table_never_the_files_own_line() {
+        let store = vec![
+            store_file(
+                "MEMORY.md",
+                "## Freshness\n| File | Last verified | Budget |\n|---|---|---|\n| state/status.md | 2026-07-30 | 400 tokens |\n",
+            ),
+            store_file("state/status.md", "# Status\n\n_Last updated: 2026-08-20_\n"),
+        ];
+        assert_eq!(
+            freshness_table_date_for(&store, "state/status.md"),
+            Some("2026-07-30".to_string())
+        );
+        assert_eq!(freshness_table_date_for(&store, "context/stack.md"), None);
+    }
+
+    #[test]
+    fn freshness_table_date_for_is_none_without_a_memory_md() {
+        let store = vec![store_file(
+            "state/status.md",
+            "# Status\n\n_Last updated: 2026-08-20_\n",
+        )];
+        assert_eq!(freshness_table_date_for(&store, "state/status.md"), None);
+    }
+
+    #[test]
+    fn status_own_last_updated_date_reads_only_status_mds_own_line_never_the_table() {
+        let store = vec![
+            store_file(
+                "MEMORY.md",
+                "## Freshness\n| File | Last verified | Budget |\n|---|---|---|\n| state/status.md | 2026-07-30 | 400 tokens |\n",
+            ),
+            store_file("state/status.md", "# Status\n\n_Last updated: 2026-08-20_\n"),
+        ];
+        assert_eq!(
+            status_own_last_updated_date(&store),
+            Some("2026-08-20".to_string())
+        );
     }
 
     #[test]
