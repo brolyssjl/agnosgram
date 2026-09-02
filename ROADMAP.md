@@ -120,10 +120,20 @@ rather than release gates._
       tests, and the npm toolchain removed; conformance suite ported to
       `rust/tests/`)
 - [ ] Upgrade story: version-stamped managed blocks, `doctor` warns on
-      stale artifacts, `adapt --refresh` shows a diff before updating
-- [ ] Soak: the real host projects run the Rust binaries daily, including
+      stale artifacts, `adapt --refresh` shows a diff before updating.
+      **Next scheduled build item** - gate shipped its equivalent as
+      `gate doctor`/`gate update` (gate 1.3.0) and it decisively fixed
+      gate's invisibility in host repos; that implementation is the
+      template (diagnose adapter/artifact drift, heal idempotently, never
+      clobber user edits without --force)
+- [x] Soak: the real host projects run the Rust binaries daily, including
       one gate → agnosgram RETRO-sync exercise run with both Rust
-      binaries together (audit RM-06)
+      binaries together (audit RM-06). Satisfied 2026-08-29: the CF-123
+      run on constructflow-api walked gate's full loop on the Rust
+      binaries with `gate retro` -> `.agnosgram/journal` sync verified
+      end to end (constructflow-api PR #88), and both host repos have
+      since completed the full capture -> distill -> archive cycle with
+      `doctor` reporting a fully healthy store in each
 - [ ] Decide whether to go public / recruit at least one outside pilot
       user (owner decision) (audit RM-03)
 - [ ] Docs site + case study (the 2026-07/08 constructflow soak writeup)
@@ -152,6 +162,10 @@ agnosgram#14, all merged) that aren't tied to a milestone above._
       constructflow-api): each filed friction via `feedback`, ran `reflect`,
       and synthesized accept/reject proposals (see the soak reports). Still
       open - this is a recurring practice to keep running, not a one-shot.
+      Second cadence run 2026-09-02: friction from two framework-blind
+      distill runs in the host repos was filed as issues #26/#27/#28,
+      fixed, and released as `1.3.0` the same day (all three accepted;
+      see the round block below).
 - [x] Refresh `.agnosgram/context/architecture.md`: still describes the
       Milestone-1 TS module map and never tracked Milestones 2-6 or the
       Rust port. (found during PR #14 work)
@@ -166,6 +180,36 @@ agnosgram#14, all merged) that aren't tied to a milestone above._
       FRI-007/FRI-008). Also scoped the `reflect` prompt template to be
       host-generic, removing dangling `ROADMAP.md`/`CON-003` references
       that only make sense in this repo's own store (soak FRI-005).
+
+_Items from the 2026-09-02 dogfooding round: two framework-blind agents ran
+the full distill workflow in the host repos (constructflow-web/-api) with
+friction reporting as a primary deliverable; both independently hit the
+same trap (#27), which is what earned it the top spot. All fixed and
+released as `1.3.0` the same day._
+
+- [x] Per-subcommand `-h`/`--help` (issue #26, PR #29): every subcommand
+      used to error with "Unknown option"; now each prints its own scoped
+      usage block, exit 0 (mirrors gate's FRI-004 fix)
+- [x] Freshness source of truth (issue #27, PR #30): the distill prompt
+      now names MEMORY.md's Freshness table as a required output, the
+      `status.stale` warning says where the recorded date actually lives,
+      and a new `freshness.mismatch` doctor check catches the table and
+      status.md's own "Last updated" line disagreeing - previously an
+      agent following the emitted prompt literally produced a store its
+      own doctor rejected, with no hint why
+- [x] `distill --validate` batch mode + token-vs-budget report (`~N/M
+      tokens` per file) and documented `doctor --strict` exit semantics
+      (issue #28, PR #31)
+- [x] `install.sh` removes obsolete pre-Rust `brainstorm-tools/
+      agnosgram-v*` install dirs after a checksum-verified install
+      (opt-out via `AGNOSGRAM_KEEP_OLD_INSTALLS=1`; PR #25) - this
+      installer never even flagged them before
+- [ ] `doctor`: warn when `.agnosgram/` contains files untracked by git
+      (e.g. `meta/friction.md` sitting untracked in both host repos) -
+      friction captured in one checkout is invisible to worktrees and to
+      `reflect` runs elsewhere, and every agent doing a `.agnosgram/`-
+      scoped task trips over the ambiguity (2026-08-29 soak item I2,
+      re-confirmed by both 2026-09-02 distill agents)
 
 ## Deferred (not scheduled)
 Semantic search / embeddings · per-user private memory (`local/`) · monorepo nested
