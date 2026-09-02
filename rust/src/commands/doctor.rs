@@ -9,7 +9,8 @@ use crate::core::args::{parse_cli_args, ArgsConfig, OptionDef};
 use crate::core::config::{load_config, AgnosgramConfig};
 use crate::core::dates::{days_between, today_iso};
 use crate::core::freshness::{
-    newest_journal_entry_date, parse_freshness_table, status_freshness_date,
+    freshness_table_date_for, newest_journal_entry_date, parse_freshness_table,
+    status_freshness_date, status_own_last_updated_date,
 };
 use crate::core::frontmatter::{
     extract_records, validate_record, Frontmatter, IssueLevel, KNOWN_TYPES,
@@ -444,7 +445,10 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
                     id: None,
                     message: format!(
                         "status.md may be stale; newest journal entry is {journal_date} but \
-                         status.md's recorded freshness is {status_date} - review and refresh it"
+                         recorded freshness (MEMORY.md's Freshness table, or status.md's own \
+                         \"Last updated:\" line when that table has no row for it) is \
+                         {status_date} - review status.md and update its row in MEMORY.md's \
+                         Freshness table, not just the file itself"
                     ),
                 });
             }
@@ -479,6 +483,34 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
                 line: None,
                 id: None,
                 message,
+            });
+        }
+    }
+
+    // 8b. Freshness source-of-truth cross-check (independent of whether the
+    // journal has any entries yet): MEMORY.md's Freshness table row for
+    // state/status.md vs status.md's own "Last updated:" line. `status.stale`
+    // above only ever reads the table (falling back to this line only when
+    // the table has no row at all) - an agent that refreshes status.md's own
+    // line without also touching the table produces exactly this
+    // disagreement, and would otherwise pass `status.stale` silently by
+    // "fixing" a date `doctor` never looks at.
+    if let (Some(table_date), Some(own_date)) = (
+        freshness_table_date_for(&store, "state/status.md"),
+        status_own_last_updated_date(&store),
+    ) {
+        if table_date != own_date {
+            findings.push(Finding {
+                level: Level::Warn,
+                code: "freshness.mismatch".to_string(),
+                file: format!("{MEMORY_DIR}/MEMORY.md"),
+                line: None,
+                id: None,
+                message: format!(
+                    "MEMORY.md's Freshness table says state/status.md was last verified \
+                     {table_date}, but status.md's own \"Last updated:\" line says {own_date} - \
+                     doctor and `status.stale` only read the table, so update that row too"
+                ),
             });
         }
     }
@@ -947,6 +979,77 @@ mod tests {
         fs::write(root.join(".agnosgram/MEMORY.md"), memory_md("2000-01-01")).unwrap();
         let c = codes(&root);
         assert!(c.contains(&"status.stale".to_string()), "{c:?}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn status_stale_message_names_memory_md_s_freshness_table_as_the_recorded_source() {
+        // agnosgram#27: the old wording ("status.md's recorded freshness is
+        // ...") read as if the date lived in status.md itself, so an agent
+        // that dutifully refreshed status.md's own line kept failing
+        // `doctor --strict` with no hint that a second file (MEMORY.md) was
+        // the actual source of truth. The reworded message must name it.
+        let root = tmp_store("status-stale-wording");
+        let month = journal_month_now();
+        write_journal(&root, &month, &iso_date());
+        fs::write(root.join(".agnosgram/MEMORY.md"), memory_md("2000-01-01")).unwrap();
+        let report = run_doctor_checks(&root).unwrap();
+        let finding = report
+            .findings
+            .iter()
+            .find(|f| f.code == "status.stale")
+            .unwrap_or_else(|| {
+                panic!("expected a status.stale finding, got {:?}", report.findings)
+            });
+        assert!(
+            finding.message.contains("MEMORY.md") && finding.message.contains("Freshness table"),
+            "{}",
+            finding.message
+        );
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn memory_md_table_disagreeing_with_status_mds_own_last_updated_line_flags_freshness_mismatch()
+    {
+        let root = tmp_store("freshness-mismatch");
+        // Scaffold gives both the same date; roll only the freshness-table
+        // row back, leaving status.md's own "Last updated:" line untouched -
+        // exactly what a literal-minded distill run produces per agnosgram#27.
+        fs::write(root.join(".agnosgram/MEMORY.md"), memory_md("2000-01-01")).unwrap();
+        let report = run_doctor_checks(&root).unwrap();
+        let finding = report
+            .findings
+            .iter()
+            .find(|f| f.code == "freshness.mismatch")
+            .unwrap_or_else(|| {
+                panic!(
+                    "expected a freshness.mismatch finding, got {:?}",
+                    report.findings
+                )
+            });
+        assert_eq!(finding.level, Level::Warn);
+        assert!(finding.message.contains("2000-01-01"));
+        assert!(finding.message.contains(&iso_date()));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn freshness_mismatch_fires_even_with_no_journal_entries() {
+        // The cross-check is independent of journal/status recall staleness
+        // (check 8) - it must not be gated behind a real journal entry.
+        let root = tmp_store("freshness-mismatch-no-journal");
+        fs::write(root.join(".agnosgram/MEMORY.md"), memory_md("2000-01-01")).unwrap();
+        let c = codes(&root);
+        assert!(c.contains(&"freshness.mismatch".to_string()), "{c:?}");
+        assert!(!c.contains(&"status.stale".to_string()), "{c:?}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn agreeing_freshness_sources_do_not_flag_a_mismatch() {
+        let root = tmp_store("freshness-agree");
+        assert!(!codes(&root).contains(&"freshness.mismatch".to_string()));
         fs::remove_dir_all(&root).unwrap();
     }
 

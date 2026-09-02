@@ -43,6 +43,7 @@ Run it in CI to keep memory healthy the same way you keep code healthy.
 | `source.anchor` | a record's `source:` carries a `#L` line anchor, which breaks on the next append - reference the whole file |
 | `injection.*` | stored memory contains an imperative that could hijack an agent |
 | `status.stale` | the newest journal entry is dated after `state/status.md`'s recorded freshness - the journal moved on but status.md was never refreshed |
+| `freshness.mismatch` | `MEMORY.md`'s freshness-table row for `state/status.md` disagrees with `status.md`'s own `Last updated:` line - update the table row, since that is what `status.stale` (and `pack`) actually read |
 | `distill.lag` | the journal has real entries but `lessons/pitfalls.md` and `lessons/conventions.md` were never distilled, or the newest journal entry runs more than ~30 days ahead of the newest distilled lesson |
 
 ## The safety lints
@@ -81,6 +82,15 @@ before it costs a session:
 Both suggest running `agnosgram distill` (and reviewing `status.md` by hand)
 as the fix. `pack` surfaces the same `status.stale` signal too - see
 [pack](pack.md#recall-freshness-note).
+
+A related but distinct failure mode: an agent refreshes `status.md`'s own
+`_Last updated:_` line but forgets the `MEMORY.md` freshness-table row is the
+value `status.stale` (and `pack`) actually trust. **`freshness.mismatch`**
+catches exactly that - it compares the two sources directly and warns when
+they disagree, even before the journal itself has run ahead of either one.
+`agnosgram distill`'s emitted prompt now calls out the `MEMORY.md` table as a
+required edit whenever `status.md` or a lessons file is touched, precisely to
+avoid producing this state.
 
 ## Typical workflow
 

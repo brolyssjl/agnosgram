@@ -107,3 +107,65 @@ fn doctor_on_a_fresh_store_with_no_journal_entries_never_flags_recall_freshness(
     assert!(!res.stdout.contains("status.stale"));
     assert!(!res.stdout.contains("distill.lag"));
 }
+
+// agnosgram#27: reword the status.stale message to say where the recorded
+// date actually lives, since the old wording read as if it came from
+// status.md itself.
+#[test]
+fn status_stale_finding_names_memory_md_s_freshness_table_as_the_recorded_source() {
+    let root = setup();
+    let memory_path = root.path().join(".agnosgram/MEMORY.md");
+    let memory = fs::read_to_string(&memory_path).unwrap();
+    let today_row = memory
+        .lines()
+        .find(|l| l.trim_start().starts_with("| state/status.md"))
+        .expect("expected a state/status.md freshness row");
+    let stale_row =
+        today_row.replacen(today_row.split('|').nth(2).unwrap().trim(), "2000-01-01", 1);
+    fs::write(&memory_path, memory.replace(today_row, &stale_row)).unwrap();
+
+    let log = run_cli(&["log", "--did", "soak test entry"], root.path());
+    assert_eq!(log.status, 0, "log failed: {}", log.stderr);
+
+    let res = run_cli(&["doctor"], root.path());
+    assert!(res.stdout.contains("MEMORY.md"), "{}", res.stdout);
+    assert!(res.stdout.contains("Freshness table"), "{}", res.stdout);
+}
+
+// agnosgram#27: doctor cross-references MEMORY.md's Freshness table row for
+// state/status.md against status.md's own "Last updated:" line, and warns
+// on disagreement - exactly the state a literal-minded distill run produces
+// when it refreshes status.md's own line without touching the table.
+#[test]
+fn doctor_flags_freshness_mismatch_when_the_table_disagrees_with_status_mds_own_line() {
+    let root = setup();
+    let memory_path = root.path().join(".agnosgram/MEMORY.md");
+    let memory = fs::read_to_string(&memory_path).unwrap();
+    let today_row = memory
+        .lines()
+        .find(|l| l.trim_start().starts_with("| state/status.md"))
+        .expect("expected a state/status.md freshness row");
+    let stale_row =
+        today_row.replacen(today_row.split('|').nth(2).unwrap().trim(), "2000-01-01", 1);
+    fs::write(&memory_path, memory.replace(today_row, &stale_row)).unwrap();
+    // status.md's own "Last updated:" line is left untouched by init's
+    // scaffold - it still carries today's date, so the two now disagree.
+
+    let res = run_cli(&["doctor"], root.path());
+    assert_eq!(
+        res.status, 0,
+        "warnings alone should not fail without --strict"
+    );
+    assert!(res.stdout.contains("freshness.mismatch"), "{}", res.stdout);
+
+    let strict = run_cli(&["doctor", "--strict"], root.path());
+    assert_eq!(strict.status, 1);
+}
+
+#[test]
+fn doctor_does_not_flag_freshness_mismatch_when_the_two_sources_agree() {
+    let root = setup();
+    let res = run_cli(&["doctor"], root.path());
+    assert_eq!(res.status, 0);
+    assert!(!res.stdout.contains("freshness.mismatch"));
+}

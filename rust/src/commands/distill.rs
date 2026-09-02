@@ -96,12 +96,18 @@ what is already there. Do NOT invent facts; only distill what the sources suppor
 4. Do not reuse an existing id. Ids already taken: {ids_line}.\n\
 5. Stay within per-file token budgets:\n\
 {budget_lines}\n\
-6. The human reviews this in a PR. Keep bodies terse and factual.\n\
+6. **Required output if you touch state/status.md or lessons/*.md:** also update the\n\
+\x20\x20\x20matching row(s) in MEMORY.md's `## Freshness` table (the `Last verified` column)\n\
+\x20\x20\x20to today's date. That table - not status.md's own `_Last updated:_` line - is\n\
+\x20\x20\x20what `doctor`'s `status.stale` check and `file.stale` check both read; updating\n\
+\x20\x20\x20only the file itself leaves the store looking stale to `doctor --strict`.\n\
+7. The human reviews this in a PR. Keep bodies terse and factual.\n\
 \n\
 ## Validate your result (mechanical, no LLM)\n\
 Run these and fix anything they report before finishing:\n\
 - `agnosgram distill --validate lessons/pitfalls.md` (repeat per file you touched)\n\
-- `agnosgram doctor --strict`\n\
+- `agnosgram doctor --strict` (also confirms MEMORY.md's Freshness table agrees with\n\
+\x20\x20status.md; see `freshness.mismatch` if it doesn't)\n\
 \n\
 ## After the human accepts the distilled records\n\
 Archive the journal months you fully absorbed so they stop counting against budgets\n\
