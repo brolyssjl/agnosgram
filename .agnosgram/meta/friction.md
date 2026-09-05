@@ -87,4 +87,4 @@ managed block written once`, both in the human output and in `--json`
 run-twice-is-identical check (CON-002) in
 `src/commands/adapt.conformance.test.ts`.
 
-On a repo where CLAUDE.md is a symlink to AGENTS.md, init/adapt reported writing both adapters as if they were independent files - the managed block lands once on disk but the report reads as a dual write, which confused a first-time adopter during a real onboarding (constructflow-api soak, 2026-07-30). Wants: symlink detection with a single honest report line.
+On a repo where CLAUDE.md is a symlink to AGENTS.md, init/adapt reported writing both adapters as if they were independent files - the managed block lands once on disk but the report reads as a dual write, which confused a first-time adopter during a real onboarding (host-project soak, 2026-07-30). Wants: symlink detection with a single honest report line.
