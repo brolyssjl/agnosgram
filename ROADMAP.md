@@ -128,15 +128,15 @@ rather than release gates._
       clobber user edits without --force)
 - [x] Soak: the real host projects run the Rust binaries daily, including
       one gate → agnosgram RETRO-sync exercise run with both Rust
-      binaries together (audit RM-06). Satisfied 2026-08-29: the CF-123
-      run on constructflow-api walked gate's full loop on the Rust
-      binaries with `gate retro` -> `.agnosgram/journal` sync verified
-      end to end (constructflow-api PR #88), and both host repos have
+      binaries together (audit RM-06). Satisfied 2026-08-29: a ticket
+      run on one of the two private host projects used for dogfooding
+      walked gate's full loop on the Rust binaries with `gate retro` ->
+      `.agnosgram/journal` sync verified end to end, and both host repos have
       since completed the full capture -> distill -> archive cycle with
       `doctor` reporting a fully healthy store in each
 - [ ] Decide whether to go public / recruit at least one outside pilot
       user (owner decision) (audit RM-03)
-- [ ] Docs site + case study (the 2026-07/08 constructflow soak writeup)
+- [ ] Docs site + case study (the 2026-07/08 host-project soak writeup)
 
 ## Fixes & improvements
 _Open items from the 2026-08-22 audit + remediation (PRs gate#11/#12,
@@ -158,8 +158,8 @@ agnosgram#14, all merged) that aren't tied to a milestone above._
       `reflect` at the end of every milestone/soak session and log
       accept/reject per proposal, instead of relying on one historical
       proof-of-concept (FRI-001/002/003). (audit RM-04) - first real cadence
-      run 2026-08-24 in both host projects (constructflow-web,
-      constructflow-api): each filed friction via `feedback`, ran `reflect`,
+      run 2026-08-24 in both private host projects used for dogfooding:
+      each filed friction via `feedback`, ran `reflect`,
       and synthesized accept/reject proposals (see the soak reports). Still
       open - this is a recurring practice to keep running, not a one-shot.
       Second cadence run 2026-09-02: friction from two framework-blind
@@ -182,7 +182,7 @@ agnosgram#14, all merged) that aren't tied to a milestone above._
       that only make sense in this repo's own store (soak FRI-005).
 
 _Items from the 2026-09-02 dogfooding round: two framework-blind agents ran
-the full distill workflow in the host repos (constructflow-web/-api) with
+the full distill workflow in the two private host repos with
 friction reporting as a primary deliverable; both independently hit the
 same trap (#27), which is what earned it the top spot. All fixed and
 released as `1.3.0` the same day._
