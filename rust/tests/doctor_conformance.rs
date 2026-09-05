@@ -1,12 +1,47 @@
 //! Ported from `src/commands/doctor.conformance.test.ts`. See
-//! `tests/CONFORMANCE_MAP.md`.
+//! `tests/CONFORMANCE_MAP.md`. The `git.untracked` cases below (agnosgram#34)
+//! have no TS counterpart - the check itself postdates the TS retirement.
 mod common;
 use common::{init_store, run_cli, write_store_file, Json, TempDir};
 use std::fs;
+use std::path::Path;
 
 fn setup() -> TempDir {
     let root = TempDir::new("agnos-doctor-conf");
     init_store(root.path());
+    root
+}
+
+fn git(root: &Path, args: &[&str]) {
+    let status = std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .expect("failed to run git");
+    assert!(status.success(), "git {args:?} failed in {root:?}");
+}
+
+/// `git init` plus enough local config that `commit` never fails on missing
+/// identity or an inherited `commit.gpgsign true` - a throwaway fixture repo
+/// under the OS temp dir, unrelated to the real project checkout.
+fn init_git_identity(root: &Path) {
+    git(root, &["init", "-q"]);
+    git(root, &["config", "commit.gpgsign", "false"]);
+    git(root, &["config", "user.email", "test@example.com"]);
+    git(root, &["config", "user.name", "Test"]);
+}
+
+/// A store scaffolded by `init` inside a fresh git repo, with every file
+/// committed - the baseline for the `git.untracked` cases.
+fn git_setup_committed() -> TempDir {
+    let root = TempDir::new("agnos-doctor-conf-git");
+    init_git_identity(root.path());
+    init_store(root.path());
+    git(root.path(), &["add", "-A"]);
+    git(root.path(), &["commit", "-q", "-m", "init"]);
     root
 }
 
@@ -168,4 +203,65 @@ fn doctor_does_not_flag_freshness_mismatch_when_the_two_sources_agree() {
     let res = run_cli(&["doctor"], root.path());
     assert_eq!(res.status, 0);
     assert!(!res.stdout.contains("freshness.mismatch"));
+}
+
+// agnosgram#34: a file created under .agnosgram/ (here, meta/friction.md,
+// exactly the case both 2026-09-02 distill agents hit) but never `git add`ed
+// is invisible to other worktrees and to a `reflect` run elsewhere - doctor
+// must catch it.
+#[test]
+fn doctor_flags_git_untracked_for_a_file_under_agnosgram_not_tracked_by_git() {
+    let root = git_setup_committed();
+    write_store_file(
+        root.path(),
+        "meta/friction.md",
+        "# Friction\n\nnever committed\n",
+    );
+
+    let res = run_cli(&["doctor"], root.path());
+    assert_eq!(
+        res.status, 0,
+        "warnings alone should not fail without --strict"
+    );
+    assert!(res.stdout.contains("git.untracked"), "{}", res.stdout);
+    assert!(
+        res.stdout.contains(".agnosgram/meta/friction.md"),
+        "{}",
+        res.stdout
+    );
+    assert!(res.stdout.contains("commit it"), "{}", res.stdout);
+
+    let strict = run_cli(&["doctor", "--strict"], root.path());
+    assert_eq!(strict.status, 1);
+}
+
+#[test]
+fn doctor_does_not_flag_git_untracked_when_the_store_is_fully_committed() {
+    let root = git_setup_committed();
+    let res = run_cli(&["doctor"], root.path());
+    assert_eq!(res.status, 0);
+    assert!(!res.stdout.contains("git.untracked"), "{}", res.stdout);
+}
+
+#[test]
+fn doctor_does_not_flag_git_untracked_outside_a_git_repository() {
+    let root = setup(); // no `git init` at all
+    let res = run_cli(&["doctor"], root.path());
+    assert_eq!(res.status, 0);
+    assert!(!res.stdout.contains("git.untracked"), "{}", res.stdout);
+}
+
+#[test]
+fn doctor_does_not_flag_a_gitignored_file_under_agnosgram_as_untracked() {
+    let root = TempDir::new("agnos-doctor-conf-gitignore");
+    fs::write(root.path().join(".gitignore"), "ignored.md\n").unwrap();
+    init_git_identity(root.path());
+    init_store(root.path());
+    git(root.path(), &["add", "-A"]);
+    git(root.path(), &["commit", "-q", "-m", "init"]);
+    write_store_file(root.path(), "meta/ignored.md", "# scratch\n\nlocal only\n");
+
+    let res = run_cli(&["doctor"], root.path());
+    assert_eq!(res.status, 0);
+    assert!(!res.stdout.contains("git.untracked"), "{}", res.stdout);
 }

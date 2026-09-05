@@ -204,12 +204,15 @@ released as `1.3.0` the same day._
       agnosgram-v*` install dirs after a checksum-verified install
       (opt-out via `AGNOSGRAM_KEEP_OLD_INSTALLS=1`; PR #25) - this
       installer never even flagged them before
-- [ ] `doctor`: warn when `.agnosgram/` contains files untracked by git
-      (e.g. `meta/friction.md` sitting untracked in both host repos) -
-      friction captured in one checkout is invisible to worktrees and to
-      `reflect` runs elsewhere, and every agent doing a `.agnosgram/`-
-      scoped task trips over the ambiguity (2026-08-29 soak item I2,
-      re-confirmed by both 2026-09-02 distill agents)
+- [x] `doctor` gains `git.untracked` (issue #34, PR #35): warns per file
+      when `.agnosgram/` contains something git does not track (e.g.
+      `meta/friction.md` sitting untracked in both host repos), telling the
+      user to commit it; gitignored files are never flagged, and the check
+      skips cleanly outside a git repo - friction captured in one checkout
+      was invisible to worktrees and to `reflect` runs elsewhere, and every
+      agent doing a `.agnosgram/`-scoped task tripped over the ambiguity
+      (2026-08-29 soak item I2, re-confirmed by both 2026-09-02 distill
+      agents)
 
 ## Deferred (not scheduled)
 Semantic search / embeddings · per-user private memory (`local/`) · monorepo nested
