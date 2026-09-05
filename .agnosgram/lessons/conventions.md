@@ -41,3 +41,46 @@ source: journal/2026-07.md
 passes, a store conforms. Any change to the schema, budgets, or store layout must
 land together with a `doctor` change and its tests - never one without the other.
 Run `agnosgram doctor --strict` before committing changes to `.agnosgram/`.
+
+---
+id: CON-004
+type: convention
+scope: [install, release]
+confidence: high
+created: 2026-09-05
+last_verified: 2026-09-05
+source: journal/2026-08.md
+---
+install.sh is curl-first against public release-redirect URLs with a `gh`
+fallback for the private-repo case - so it needs zero changes when the
+repo goes public. Keep that shape for any new download path, and keep the
+platform list in sync with release.yml (header comment contract).
+
+---
+id: CON-005
+type: convention
+scope: [store, friction]
+confidence: high
+created: 2026-09-05
+last_verified: 2026-09-05
+source: journal/2026-08.md
+---
+Friction-resolution convention: when a meta/friction.md record is fixed,
+keep the original paragraph verbatim, prepend a "RESOLVED (version): ..."
+note above it inside the same record body, and bump only last_verified -
+id/created/scope/confidence stay untouched.
+
+---
+id: CON-006
+type: convention
+scope: [release]
+confidence: high
+created: 2026-09-05
+last_verified: 2026-09-05
+source: journal/2026-08.md
+---
+Before tagging a release, re-run the full local matrix (cargo fmt/clippy/
+test plus the conformance suite against the rebuilt binary) - the
+release workflow's tag/Cargo.toml version guard only catches metadata
+drift, not behavior. One manual version bump site per file family
+(main.rs compiles VERSION from CARGO_PKG_VERSION).
