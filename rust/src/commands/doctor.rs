@@ -17,7 +17,7 @@ use crate::core::frontmatter::{
 };
 use crate::core::git::untracked_files;
 use crate::core::json::Value;
-use crate::core::lint::{injection_patterns, scan_patterns, secret_patterns};
+use crate::core::lint::{scan_injections_with_paragraphs, scan_patterns, secret_patterns};
 use crate::core::meta::KNOWN_META_TYPES;
 use crate::core::output::{info, print_structured, UserError};
 use crate::core::paths::{find_project_root, has_store, memory_dir, MEMORY_DIR};
@@ -516,9 +516,11 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
         }
     }
 
-    // 9. Safety lints: secrets (error) + prompt-injection imperatives (warn).
+    // 9. Safety lints: secrets (error, strictly per-line - secrets are
+    // single-line artifacts) + prompt-injection imperatives (warn, per-line
+    // plus a paragraph-normalized pass so hard-wrapped phrasing is still
+    // caught - agnosgram#43).
     let secret_pats = secret_patterns();
-    let injection_pats = injection_patterns();
     for file in &store {
         for hit in scan_patterns(&file.text, &secret_pats) {
             findings.push(Finding {
@@ -533,7 +535,7 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
                 ),
             });
         }
-        for hit in scan_patterns(&file.text, &injection_pats) {
+        for hit in scan_injections_with_paragraphs(&file.text) {
             findings.push(Finding {
                 level: Level::Warn,
                 code: format!("injection.{}", hit.code),

@@ -21,7 +21,7 @@ use crate::core::args::{parse_cli_args, ArgsConfig, OptionDef};
 use crate::core::config::load_config;
 use crate::core::freshness::{newest_journal_entry_date, status_freshness_date};
 use crate::core::json::Value;
-use crate::core::lint::{injection_patterns, scan_patterns};
+use crate::core::lint::scan_injections_with_paragraphs;
 use crate::core::output::{print_structured, warn, UserError};
 use crate::core::paths::{find_project_root, has_store, memory_dir, MEMORY_DIR};
 use crate::core::records::{
@@ -150,7 +150,7 @@ struct InjectionHit {
 }
 
 fn scan_injections(text: &str, source: &str, record_id: Option<&str>) -> Vec<InjectionHit> {
-    scan_patterns(text, &injection_patterns())
+    scan_injections_with_paragraphs(text)
         .into_iter()
         .map(|h| InjectionHit {
             source: source.to_string(),
@@ -333,10 +333,10 @@ fn build_pack<'a>(
     // reserve it funds is always sufficient - and on a clean store (the
     // overwhelmingly common case) `need_banner` is false, `banner_reserve`
     // is 0, and output is byte-identical to before this feature existed.
-    let need_banner = !scan_patterns(&status, &injection_patterns()).is_empty()
+    let need_banner = !scan_injections_with_paragraphs(&status).is_empty()
         || block_text
             .iter()
-            .any(|t| !scan_patterns(t, &injection_patterns()).is_empty());
+            .any(|t| !scan_injections_with_paragraphs(t).is_empty());
     let banner_reserve = if need_banner {
         let mut candidate_sources = vec![status_md_rel()];
         for rec in &candidates {
