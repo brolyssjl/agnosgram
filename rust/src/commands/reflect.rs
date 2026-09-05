@@ -12,9 +12,13 @@
 
 use crate::core::args::{parse_cli_args, ArgsConfig, OptionDef};
 use crate::core::json::Value;
+use crate::core::lint::{
+    distinct_untrusted_sources, render_untrusted_banner, scan_untrusted, warn_untrusted_hits,
+    UntrustedHit, UNTRUSTED_DATA_NOTE,
+};
 use crate::core::meta::load_friction_records;
 use crate::core::output::{print_structured, UserError};
-use crate::core::paths::{find_project_root, has_store};
+use crate::core::paths::{find_project_root, has_store, memory_dir};
 use crate::core::records::StoreRecord;
 use crate::core::serialize::{resolve_format, FormatFlags, ResolvedFormat};
 use crate::core::store::journal_months;
@@ -61,7 +65,7 @@ fn friction_digest(records: &[StoreRecord]) -> String {
     format!("{header}\n{}", rows.join("\n"))
 }
 
-fn build_prompt(months: &[String], friction: &[StoreRecord]) -> String {
+fn build_prompt(months: &[String], friction: &[StoreRecord], banner: Option<&str>) -> String {
     let months_line = if months.is_empty() {
         "(none yet)".to_string()
     } else {
@@ -72,8 +76,12 @@ fn build_prompt(months: &[String], friction: &[StoreRecord]) -> String {
             .join(", ")
     };
     let digest = friction_digest(friction);
+    let banner_block = banner.map(|b| format!("{b}\n\n")).unwrap_or_default();
     format!(
         "# Agnosgram reflect task\n\
+\n\
+{banner_block}\
+{trust_note}\n\
 \n\
 You are reviewing how well Agnosgram itself is serving this project - not the\n\
 host project's own code or memory. Turn tool friction and recent session\n\
@@ -121,7 +129,8 @@ Nothing to validate mechanically - this is a proposal, not a schema-checked\n\
 report. If a proposal implies a schema or CLI-surface change to Agnosgram\n\
 itself, remember it must land together with a corresponding `doctor` check\n\
 update - that is Agnosgram's own convention, not one of this project's\n\
-`decisions/` records.\n"
+`decisions/` records.\n",
+        trust_note = UNTRUSTED_DATA_NOTE,
     )
 }
 
@@ -162,7 +171,32 @@ pub fn run(argv: Vec<String>) -> Result<(), UserError> {
     let months: Vec<String> = all_months[start..].to_vec();
     let friction = load_friction_records(&root);
 
-    let prompt = build_prompt(&months, &friction);
+    // Friction bodies and journal months are exactly what this prompt
+    // tells an agent to read - scan them and warn-and-mark, never drop
+    // (agnosgram#39). Content the store cannot vouch for still reaches
+    // the agent, just labeled.
+    let mut hits: Vec<UntrustedHit> = Vec::new();
+    for r in &friction {
+        hits.extend(scan_untrusted(&r.body, &r.file, Some(&r.frontmatter.id)));
+    }
+    for m in &months {
+        let path = memory_dir(&root).join("journal").join(format!("{m}.md"));
+        if let Ok(text) = std::fs::read_to_string(&path) {
+            hits.extend(scan_untrusted(
+                &text,
+                &format!(".agnosgram/journal/{m}.md"),
+                None,
+            ));
+        }
+    }
+    warn_untrusted_hits("reflect", &hits);
+    let banner = if hits.is_empty() {
+        None
+    } else {
+        Some(render_untrusted_banner(&distinct_untrusted_sources(&hits)))
+    };
+
+    let prompt = build_prompt(&months, &friction, banner.as_deref());
 
     if let ResolvedFormat::Structured(fmt) = format {
         let mut out = Value::object();
@@ -212,7 +246,7 @@ mod tests {
 
     #[test]
     fn build_prompt_lists_none_yet_when_no_months() {
-        let prompt = build_prompt(&[], &[]);
+        let prompt = build_prompt(&[], &[], None);
         assert!(prompt.contains("Recent journal months: (none yet)"));
         assert!(prompt.contains("reflect task"));
         assert!(prompt.contains("owner-edited"));
@@ -221,7 +255,7 @@ mod tests {
     #[test]
     fn build_prompt_lists_journal_paths_for_each_month() {
         let months = vec!["2026-06".to_string(), "2026-07".to_string()];
-        let prompt = build_prompt(&months, &[]);
+        let prompt = build_prompt(&months, &[], None);
         assert!(prompt.contains("journal/2026-06.md, journal/2026-07.md"));
     }
 }

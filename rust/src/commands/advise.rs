@@ -18,6 +18,10 @@ use std::path::{Path, PathBuf};
 use crate::core::args::{parse_cli_args, ArgsConfig, OptionDef};
 use crate::core::dates::is_valid_iso_date;
 use crate::core::json::{self, Value};
+use crate::core::lint::{
+    distinct_untrusted_sources, render_untrusted_banner, scan_untrusted, warn_untrusted_hits,
+    UntrustedHit, UNTRUSTED_DATA_NOTE,
+};
 use crate::core::output::{info, print_structured, UserError};
 use crate::core::paths::{find_project_root, has_store};
 use crate::core::records::{load_records, StoreRecord};
@@ -70,8 +74,31 @@ fn digest_table(records: &[StoreRecord]) -> String {
 fn build_prompt(root: &Path, plan_path: &str, out_path: &str) -> String {
     let records = load_records(root);
     let digest = digest_table(&records);
+    // Record bodies feed the digest and the plan is handed to the agent
+    // wholesale - both are manipulable text, so scan and warn-and-mark,
+    // never drop (agnosgram#39). The plan path is resolved the way the
+    // agent will read it: as given, relative to the caller's cwd.
+    let mut hits: Vec<UntrustedHit> = Vec::new();
+    for r in &records {
+        hits.extend(scan_untrusted(&r.body, &r.file, Some(&r.frontmatter.id)));
+    }
+    if let Ok(text) = std::fs::read_to_string(plan_path) {
+        hits.extend(scan_untrusted(&text, plan_path, None));
+    }
+    warn_untrusted_hits("advise", &hits);
+    let banner_block = if hits.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "{}\n\n",
+            render_untrusted_banner(&distinct_untrusted_sources(&hits))
+        )
+    };
     format!(
         "# Agnosgram advise task\n\
+\n\
+{banner_block}\
+{trust_note}\n\
 \n\
 You are reviewing a plan for contradictions against this project's memory\n\
 store at `.agnosgram/`. Do NOT invent facts; only flag a contradiction when a\n\
@@ -124,7 +151,8 @@ stored record actually conflicts with something the plan says or assumes.\n\
 \n\
 ## Validate your result (mechanical, no LLM)\n\
 Run this and fix anything it reports before finishing:\n\
-`agnosgram advise --validate {out_path}`\n"
+`agnosgram advise --validate {out_path}`\n",
+        trust_note = UNTRUSTED_DATA_NOTE,
     )
 }
 

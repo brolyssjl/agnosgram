@@ -7,6 +7,10 @@ use crate::core::args::{parse_cli_args, ArgsConfig, OptionDef};
 use crate::core::config::{load_config, AgnosgramConfig};
 use crate::core::frontmatter::{extract_records, validate_record, KNOWN_CONFIDENCE, KNOWN_TYPES};
 use crate::core::json::Value;
+use crate::core::lint::{
+    distinct_untrusted_sources, render_untrusted_banner, scan_untrusted, warn_untrusted_hits,
+    UntrustedHit, UNTRUSTED_DATA_NOTE,
+};
 use crate::core::output::{info, print_json, UserError};
 use crate::core::paths::{find_project_root, has_store, memory_dir};
 use crate::core::records::iter_raw_records;
@@ -33,7 +37,54 @@ fn existing_ids(root: &Path, exclude: Option<&str>) -> Vec<String> {
     ids
 }
 
+/// Scan everything this prompt directs an agent to read (journal months,
+/// lessons, decisions) for injection phrasing; warn-and-mark, never drop
+/// (agnosgram#39). Returns the banner to embed, or `None` when clean.
+fn untrusted_banner(root: &Path) -> Option<String> {
+    let mem = memory_dir(root);
+    let mut sources: Vec<(std::path::PathBuf, String)> = journal_months(root)
+        .into_iter()
+        .map(|m| {
+            (
+                mem.join("journal").join(format!("{m}.md")),
+                format!(".agnosgram/journal/{m}.md"),
+            )
+        })
+        .collect();
+    for rel in ["lessons/pitfalls.md", "lessons/conventions.md"] {
+        sources.push((mem.join(rel), format!(".agnosgram/{rel}")));
+    }
+    if let Ok(entries) = std::fs::read_dir(mem.join("decisions")) {
+        let mut files: Vec<_> = entries
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "md"))
+            .collect();
+        files.sort();
+        for path in files {
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            let rel = format!(".agnosgram/decisions/{name}");
+            sources.push((path.clone(), rel));
+        }
+    }
+    let mut hits: Vec<UntrustedHit> = Vec::new();
+    for (path, rel) in &sources {
+        if let Ok(text) = std::fs::read_to_string(path) {
+            hits.extend(scan_untrusted(&text, rel, None));
+        }
+    }
+    warn_untrusted_hits("distill", &hits);
+    if hits.is_empty() {
+        None
+    } else {
+        Some(render_untrusted_banner(&distinct_untrusted_sources(&hits)))
+    }
+}
+
 fn build_prompt(root: &Path, config: &AgnosgramConfig) -> String {
+    let banner_block = untrusted_banner(root)
+        .map(|b| format!("{b}\n\n"))
+        .unwrap_or_default();
     let months = journal_months(root);
     let ids = existing_ids(root, None);
     let budget_lines = config
@@ -62,6 +113,9 @@ fn build_prompt(root: &Path, config: &AgnosgramConfig) -> String {
 
     format!(
         "# Agnosgram distillation task\n\
+\n\
+{banner_block}\
+{trust_note}\n\
 \n\
 You are curating this project's memory store at `.agnosgram/`. Capture is cheap\n\
 (the append-only journal); distillation is deliberate. Turn raw journal entries\n\
@@ -111,7 +165,8 @@ Run these and fix anything they report before finishing:\n\
 \n\
 ## After the human accepts the distilled records\n\
 Archive the journal months you fully absorbed so they stop counting against budgets\n\
-and re-distillation: `agnosgram distill --archive <YYYY-MM>`.\n"
+and re-distillation: `agnosgram distill --archive <YYYY-MM>`.\n",
+        trust_note = UNTRUSTED_DATA_NOTE,
     )
 }
 
