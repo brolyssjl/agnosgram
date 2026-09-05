@@ -45,6 +45,7 @@ Run it in CI to keep memory healthy the same way you keep code healthy.
 | `status.stale` | the newest journal entry is dated after `state/status.md`'s recorded freshness - the journal moved on but status.md was never refreshed |
 | `freshness.mismatch` | `MEMORY.md`'s freshness-table row for `state/status.md` disagrees with `status.md`'s own `Last updated:` line - update the table row, since that is what `status.stale` (and `pack`) actually read |
 | `distill.lag` | the journal has real entries but `lessons/pitfalls.md` and `lessons/conventions.md` were never distilled, or the newest journal entry runs more than ~30 days ahead of the newest distilled lesson |
+| `git.untracked` | a file under `.agnosgram/` exists but git does not track it - commit it so other worktrees and `reflect` runs elsewhere can see it |
 
 ## The safety lints
 
@@ -91,6 +92,26 @@ they disagree, even before the journal itself has run ahead of either one.
 `agnosgram distill`'s emitted prompt now calls out the `MEMORY.md` table as a
 required edit whenever `status.md` or a lessons file is touched, precisely to
 avoid producing this state.
+
+## Git tracking
+
+`.agnosgram/` is plain Markdown meant to be reviewed and shared through git
+like any other source file - but a file can be written to disk (by hand, or
+by an agent) and never `git add`ed, and nothing about the store itself would
+look wrong. This bit twice on 2026-09-02: both distill agents running in the
+host repos produced a `meta/friction.md` that sat untracked, which made it
+invisible to any other worktree of the same repo and to a `reflect` run in a
+fresh checkout elsewhere.
+
+**`git.untracked`** shells out to git, scoped to `.agnosgram/`, to catch
+this: any file under the store that git considers untracked and not
+gitignored gets a warning naming that file, with the fix being to commit it
+(or add it to `.gitignore` if it is genuinely meant to stay local to that
+checkout). It skips cleanly - no findings, no error - when the project is
+not a git repository at all, or `git` is unavailable; this is a hygiene
+nudge on top of git, not a replacement for it. A file your `.gitignore`
+already excludes is never flagged, since that is the store's own decision to
+keep it local.
 
 ## Typical workflow
 

@@ -15,6 +15,7 @@ use crate::core::freshness::{
 use crate::core::frontmatter::{
     extract_records, validate_record, Frontmatter, IssueLevel, KNOWN_TYPES,
 };
+use crate::core::git::untracked_files;
 use crate::core::json::Value;
 use crate::core::lint::{injection_patterns, scan_patterns, secret_patterns};
 use crate::core::meta::KNOWN_META_TYPES;
@@ -548,6 +549,32 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
         check_broken_links(file, &mut findings);
     }
 
+    // 10. Files under .agnosgram/ untracked by git. Friction and lessons
+    // captured in one checkout are invisible to another worktree, and to a
+    // `reflect` run elsewhere, until they are committed (2026-08-29 soak
+    // item I2, re-confirmed by both 2026-09-02 distill agents; agnosgram#34).
+    // Skips gracefully - no findings, no error - when `root` is not inside a
+    // git working tree or `git` is unavailable; this is a hygiene nudge, not
+    // something that should ever fail `doctor` itself. Files git already
+    // ignores (.gitignore, .git/info/exclude, global excludes) are never
+    // flagged - see `core::git::untracked_files`.
+    if let Some(mut untracked) = untracked_files(root, MEMORY_DIR) {
+        untracked.sort();
+        for path in untracked {
+            findings.push(Finding {
+                level: Level::Warn,
+                code: "git.untracked".to_string(),
+                file: path,
+                line: None,
+                id: None,
+                message: "not tracked by git; commit it so other worktrees and `reflect` runs \
+                          elsewhere can see it (or add it to .gitignore if it should stay local \
+                          to this checkout)"
+                    .to_string(),
+            });
+        }
+    }
+
     findings.sort_by(|a, b| {
         a.file
             .cmp(&b.file)
@@ -735,6 +762,34 @@ mod tests {
             format!("# Friction\n\n{body}"),
         )
         .unwrap();
+    }
+
+    fn git(root: &Path, args: &[&str]) {
+        let status = std::process::Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .expect("failed to run git");
+        assert!(status.success(), "git {args:?} failed in {root:?}");
+    }
+
+    /// `git init` plus enough local config that `git commit` never fails on
+    /// missing identity or an inherited `commit.gpgsign true` - this is a
+    /// throwaway fixture repo under the OS temp dir, unrelated to the real
+    /// project checkout.
+    fn git_repo(root: &Path) {
+        git(root, &["init", "-q"]);
+        git(root, &["config", "commit.gpgsign", "false"]);
+        git(root, &["config", "user.email", "test@example.com"]);
+        git(root, &["config", "user.name", "Test"]);
+    }
+
+    fn git_commit_all(root: &Path) {
+        git(root, &["add", "-A"]);
+        git(root, &["commit", "-q", "-m", "init"]);
     }
 
     fn codes(root: &Path) -> Vec<String> {
@@ -1071,6 +1126,63 @@ mod tests {
         let c = codes(&root);
         assert!(!c.contains(&"status.stale".to_string()), "{c:?}");
         assert!(!c.contains(&"distill.lag".to_string()), "{c:?}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    // agnosgram#34: friction/lessons written in one checkout but never
+    // `git add`ed are invisible to other worktrees and to a `reflect` run
+    // elsewhere. `doctor` shells out to git, scoped to `.agnosgram/`, to
+    // catch this.
+    #[test]
+    fn flags_a_file_under_agnosgram_that_git_does_not_track() {
+        let root = tmp_store("git-untracked");
+        git_repo(&root);
+        write_friction(&root, "---\nid: FRI-001\ntype: friction\nscope: [cli]\nconfidence: medium\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: meta/friction.md\n---\nnever committed\n");
+        let report = run_doctor_checks(&root).unwrap();
+        let finding = report
+            .findings
+            .iter()
+            .find(|f| f.code == "git.untracked" && f.file == ".agnosgram/meta/friction.md")
+            .unwrap_or_else(|| {
+                panic!(
+                    "expected a git.untracked finding, got {:?}",
+                    report.findings
+                )
+            });
+        assert_eq!(finding.level, Level::Warn);
+        assert!(finding.message.contains("commit it"), "{}", finding.message);
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_fully_tracked_store_does_not_flag_git_untracked() {
+        let root = tmp_store("git-tracked");
+        git_repo(&root);
+        git_commit_all(&root);
+        assert!(!codes(&root).contains(&"git.untracked".to_string()));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_gitignored_file_under_agnosgram_is_not_flagged_as_untracked() {
+        let root = tmp_store("git-ignored");
+        fs::write(root.join(".gitignore"), "ignored.md\n").unwrap();
+        git_repo(&root);
+        git_commit_all(&root);
+        fs::create_dir_all(root.join(".agnosgram/meta")).unwrap();
+        fs::write(root.join(".agnosgram/meta/ignored.md"), "scratch notes\n").unwrap();
+        let c = codes(&root);
+        assert!(!c.contains(&"git.untracked".to_string()), "{c:?}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_store_outside_any_git_repo_skips_the_untracked_check_cleanly() {
+        let root = tmp_store("git-none");
+        // tmp_store() never runs `git init` - this checks that absence, not
+        // just its default. run_doctor_checks() must still succeed.
+        let report = run_doctor_checks(&root).unwrap();
+        assert!(!report.findings.iter().any(|f| f.code == "git.untracked"));
         fs::remove_dir_all(&root).unwrap();
     }
 
