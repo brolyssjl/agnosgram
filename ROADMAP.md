@@ -222,16 +222,17 @@ never get the meta machinery pushed on them - their channel is issues and
 PRs - and no store file is trusted 100%: it is manipulable free text that
 flows into agent-facing prompts. Sister effort: gate#39._
 
-- [ ] Owner-only dogfooding posture (issue #38): document meta/feedback as
-      the maintainer's channel (`init` already never scaffolds `meta/`);
+- [x] Owner-only dogfooding posture (issue #38, PR #41): README "Trust
+      posture" + docs/feedback.md state that meta/feedback is the
+      maintainer's channel (`init` already never scaffolds `meta/`);
       external feedback = issues/PRs, gitignoring `meta/` is a supported
       choice; no telemetry, ever
-- [ ] Untrusted store content (issue #39): extend the SEC-07 injection
-      warn-and-mark from `pack` to every command that embeds store content
-      in an emitted prompt (`reflect`, `distill`, `advise`); wrap embedded
-      content in data fences with a data-not-instructions preamble; state
-      the trust posture in the README threat-model terms; hostile-fixture
-      tests per prompt-emitting command
+- [x] Untrusted store content (issue #39, PR #41): the SEC-07 injection
+      warn-and-mark extends from `pack` to `reflect`/`distill`/`advise` via
+      shared `core::lint` helpers (banner in the prompt + stderr detail,
+      content never dropped); every emitted prompt carries a standing
+      data-not-instructions trust note; README documents the posture;
+      hostile-fixture conformance tests per command
 
 ## Deferred (not scheduled)
 Semantic search / embeddings · per-user private memory (`local/`) · monorepo nested
