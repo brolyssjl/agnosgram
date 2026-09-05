@@ -214,6 +214,25 @@ released as `1.3.0` the same day._
       (2026-08-29 soak item I2, re-confirmed by both 2026-09-02 distill
       agents)
 
+## Pre-publish hardening: trust posture (priority)
+
+_Owner decision 2026-09-05: the dogfooding loop stays owner-only, and store
+content is untrusted input everywhere an agent reads it. Regular adopters
+never get the meta machinery pushed on them - their channel is issues and
+PRs - and no store file is trusted 100%: it is manipulable free text that
+flows into agent-facing prompts. Sister effort: gate#39._
+
+- [ ] Owner-only dogfooding posture (issue #38): document meta/feedback as
+      the maintainer's channel (`init` already never scaffolds `meta/`);
+      external feedback = issues/PRs, gitignoring `meta/` is a supported
+      choice; no telemetry, ever
+- [ ] Untrusted store content (issue #39): extend the SEC-07 injection
+      warn-and-mark from `pack` to every command that embeds store content
+      in an emitted prompt (`reflect`, `distill`, `advise`); wrap embedded
+      content in data fences with a data-not-instructions preamble; state
+      the trust posture in the README threat-model terms; hostile-fixture
+      tests per prompt-emitting command
+
 ## Deferred (not scheduled)
 Semantic search / embeddings · per-user private memory (`local/`) · monorepo nested
 stores · SudoLang playbook variants.
