@@ -1,6 +1,17 @@
+<div align="center">
+  <img src="docs/assets/agnosgram-mascot.svg" width="150" alt="Agnosgram's mascot: an elephant holding a pencil in its trunk">
+
 # Agnosgram
 
-**Agent-agnostic, per-project memory for AI coding agents.** Plain Markdown + YAML
+**Agent-agnostic, per-project memory for AI coding agents.**
+
+[![Release](https://img.shields.io/github/v/release/brolyssjl/agnosgram)](https://github.com/brolyssjl/agnosgram/releases)
+[![CI](https://github.com/brolyssjl/agnosgram/actions/workflows/ci.yml/badge.svg)](https://github.com/brolyssjl/agnosgram/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/brolyssjl/agnosgram)](LICENSE)
+
+</div>
+
+Plain Markdown + YAML
 frontmatter, committed to your repo, reviewable in PRs. No database, no server, no
 API keys, no network after install. Any agent that can read a file can use it.
 
@@ -10,7 +21,8 @@ API keys, no network after install. Any agent that can read a file can use it.
 > Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
 > it** - never the reverse.
 
-> **Status:** `1.0.0`. Milestones 1-5 plus the Milestone 6 Rust port are done
+> **Status:** stable `1.x` - the release badge above tracks the latest
+> version. Milestones 1-5 plus the Milestone 6 Rust port are done
 > and dogfooded on this repo: capture
 > (`init` / `adapt` / `log`), the self-maintaining half (`doctor` / `distill` /
 > `bootstrap`), retrieval (`pack` / `show` / `advise`), reach (every mainstream
@@ -153,7 +165,9 @@ self-maintaining half (`doctor` / `distill` / `bootstrap`), retrieval (`pack` /
 `show` / `advise`), reach (adapters, Claude Code hooks, install.sh + binaries,
 SDD coexistence), the reflexive loop (`feedback` / `reflect`), and the Rust
 port, with the on-disk format frozen at version 1. Round 3 (post-`1.0.0`
-hardening: upgrade story, daily-driver soak, docs site) is next. Full plan
+hardening) is underway: the daily-driver soak is done and the `1.x` releases
+hardened `doctor`, the scanner, and the trust posture; the upgrade story and
+a docs site remain. Full plan
 with progress checkboxes and release checkpoints: **[ROADMAP.md](ROADMAP.md)**.
 
 **`0.5.0`** was the first release safe to adopt on a real project: frontmatter
