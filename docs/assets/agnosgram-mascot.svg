@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Agnosgram's mascot: an elephant holding a pencil in its trunk">
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#efeaf9"/>
+  <g transform="translate(22 36) scale(2.2)">
+    <circle cx="27" cy="44" r="16" fill="#b9aee6"/>
+    <circle cx="69" cy="44" r="16" fill="#b9aee6"/>
+    <circle cx="48" cy="48" r="23" fill="#8f7fd4"/>
+    <circle cx="41" cy="44" r="2.8" fill="#2b2350"/>
+    <circle cx="55" cy="44" r="2.8" fill="#2b2350"/>
+    <path d="M48 60 C48 72, 41 78, 33 75" fill="none" stroke="#8f7fd4" stroke-width="9" stroke-linecap="round"/>
+    <g transform="rotate(-24 30 74)">
+      <rect x="18" y="71" width="24" height="6" rx="2" fill="#f0c945"/>
+      <path d="M18 71 L12 74 L18 77 Z" fill="#e8927c"/>
+      <rect x="38" y="71" width="4" height="6" fill="#d8a0c0"/>
+    </g>
+    <circle cx="66" cy="20" r="2" fill="#8f7fd4"/>
+    <circle cx="72" cy="14" r="3" fill="#b9aee6"/>
+    <circle cx="80" cy="7" r="4" fill="#d8d0f2"/>
+  </g>
+</svg>
