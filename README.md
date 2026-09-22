@@ -30,8 +30,15 @@ network after install. Any agent that can read a file can use it.
 curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh | bash
 ```
 
-Pin a version with `AGNOSGRAM_VERSION=1.5.0` before the command. No prebuilt
-binary for your platform? Build from source, zero external crates required:
+To pin an exact version instead of the latest release, set `AGNOSGRAM_VERSION`
+for the `bash` side of the pipe:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh | AGNOSGRAM_VERSION=1.5.1 bash
+```
+
+No prebuilt binary for your platform? Build from source, zero external crates
+required:
 
 ```bash
 cargo build --release --manifest-path rust/Cargo.toml
