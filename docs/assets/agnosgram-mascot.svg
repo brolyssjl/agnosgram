@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Agnosgram's mascot: a cyberpunk elephant with a glowing stylus in its trunk">
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#12101d"/>
+  <defs>
+    <linearGradient id="a-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4c4184"/><stop offset="1" stop-color="#2a2350"/></linearGradient>
+    <linearGradient id="a-ear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b3268"/><stop offset="1" stop-color="#221c42"/></linearGradient>
+    <radialGradient id="a-pink" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#e64ce0" stop-opacity="0.28"/><stop offset="1" stop-color="#e64ce0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="a-cyan" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#22d3ee" stop-opacity="0.25"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+    <filter id="a-blur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.2"/></filter>
+  </defs>
+  <g transform="translate(8 8) scale(2)">
+    <circle cx="22" cy="22" r="26" fill="url(#a-pink)"/>
+    <circle cx="100" cy="34" r="26" fill="url(#a-cyan)"/>
+    <g stroke="#e64ce0" stroke-width="0.8" opacity="0.35" fill="none">
+      <path d="M18 100 H102"/><path d="M14 105 H106"/><path d="M9 111 H111"/>
+      <path d="M60 100 V118"/><path d="M44 100 L38 118"/><path d="M76 100 L82 118"/>
+      <path d="M29 100 L16 118"/><path d="M91 100 L104 118"/>
+    </g>
+    <ellipse cx="60" cy="101" rx="30" ry="4" fill="#22d3ee" opacity="0.18"/>
+    <path d="M34 24 C14 21, 5 42, 12 58 C16 68, 28 71, 37 64 Z" fill="url(#a-ear)"/>
+    <path d="M86 24 C106 21, 115 42, 108 58 C104 68, 92 71, 83 64 Z" fill="url(#a-ear)"/>
+    <g fill="none" stroke-width="1.2" opacity="0.85">
+      <path d="M20 36 h7 v8 h5" stroke="#22d3ee"/>
+      <path d="M100 36 h-7 v8 h-5" stroke="#e64ce0"/>
+    </g>
+    <circle cx="32" cy="44" r="1.3" fill="#22d3ee"/>
+    <circle cx="88" cy="44" r="1.3" fill="#e64ce0"/>
+    <circle cx="60" cy="50" r="27" fill="url(#a-body)"/>
+    <path d="M82 33 A27 27 0 0 1 85 60" stroke="#22d3ee" stroke-width="4" fill="none" opacity="0.4" filter="url(#a-blur)"/>
+    <path d="M82 33 A27 27 0 0 1 85 60" stroke="#22d3ee" stroke-width="2" fill="none" opacity="0.95"/>
+    <path d="M38 33 A27 27 0 0 0 35 60" stroke="#e64ce0" stroke-width="4" fill="none" opacity="0.4" filter="url(#a-blur)"/>
+    <path d="M38 33 A27 27 0 0 0 35 60" stroke="#e64ce0" stroke-width="2" fill="none" opacity="0.95"/>
+    <rect x="68" y="29" width="8" height="4.5" rx="1" fill="#101426" stroke="#22d3ee" stroke-width="0.9"/>
+    <circle cx="72" cy="31.2" r="1" fill="#7ff7ff"/>
+    <ellipse cx="50" cy="46" rx="4.6" ry="5.2" fill="#0c0a18"/>
+    <ellipse cx="70" cy="46" rx="4.6" ry="5.2" fill="#0c0a18"/>
+    <circle cx="50.3" cy="46.5" r="2.6" fill="#22d3ee"/>
+    <circle cx="69.7" cy="46.5" r="2.6" fill="#22d3ee"/>
+    <circle cx="49.5" cy="45.5" r="1" fill="#eafeff"/>
+    <circle cx="68.9" cy="45.5" r="1" fill="#eafeff"/>
+    <path d="M44.5 37.5 q5 -3.8 10 -0.8" stroke="#e64ce0" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.85"/>
+    <path d="M65.4 44 q4.6 -3.4 9.2 0 L74.6 45.8 q-4.6 -2.4 -9.2 0 Z" fill="#2a2350"/>
+    <path d="M65.6 44.6 q4.5 -2.4 9 0" stroke="#e64ce0" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.85"/>
+    <path d="M49 69 q-2.5 6.5 1.5 10 q3.5 -2.5 2.5 -10 Z" fill="#d8d2ee"/>
+    <path d="M71 69 q2.5 6.5 -1.5 10 q-3.5 -2.5 -2.5 -10 Z" fill="#d8d2ee"/>
+    <circle cx="50.5" cy="78" r="1.4" fill="#7ff7ff" opacity="0.9"/>
+    <circle cx="69.5" cy="78" r="1.4" fill="#7ff7ff" opacity="0.9"/>
+    <path d="M67 64.5 q5.5 -1.5 7.5 -5.5" stroke="#e64ce0" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.85"/>
+    <circle cx="29" cy="66.5" r="3" fill="none" stroke="#22d3ee" stroke-width="1.4"/>
+    <circle cx="35.5" cy="68.5" r="2.1" fill="none" stroke="#22d3ee" stroke-width="1.3" opacity="0.9"/>
+    <path d="M55 72 C55.5 88, 49 100, 36 98 C31.5 97.2, 30.5 91.5, 34 89.5 C43 91.5, 48.5 84, 48 71 Z" fill="url(#a-body)"/>
+    <g stroke="#22d3ee" stroke-width="1.2" fill="none" opacity="0.5" stroke-linecap="round">
+      <path d="M49.5 78 q3.5 1.8 5.5 0.4"/>
+      <path d="M47.5 86 q3.5 1.8 5.5 0.4"/>
+      <path d="M43 92.5 q3 1.8 5 0.4"/>
+    </g>
+    <g transform="rotate(-18 32 94)">
+      <rect x="14" y="91" width="25" height="4" rx="2" fill="#1a1630" stroke="#22d3ee" stroke-width="0.9"/>
+      <path d="M17 93 h19" stroke="#22d3ee" stroke-width="0.8" opacity="0.7" fill="none"/>
+      <circle cx="12.5" cy="93" r="2.6" fill="#7ff7ff" opacity="0.5" filter="url(#a-blur)"/>
+      <circle cx="12.5" cy="93" r="1.6" fill="#7ff7ff"/>
+    </g>
+    <g stroke="#22d3ee" fill="#22d3ee" fill-opacity="0.14" stroke-width="1">
+      <g transform="rotate(8 90 24)"><rect x="86" y="20" width="7" height="7" rx="1"/><path d="M88 23.5 h3" fill="none" opacity="0.9"/></g>
+      <g transform="rotate(-7 99 12)"><rect x="95" y="7" width="9" height="9" rx="1"/><path d="M97 10.5 h5 M97 13 h3.5" fill="none" opacity="0.9"/></g>
+    </g>
+  </g>
+</svg>
