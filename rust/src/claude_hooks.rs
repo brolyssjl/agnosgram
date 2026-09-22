@@ -11,7 +11,7 @@ use std::path::Path;
 
 use crate::core::json::Value;
 use crate::core::output::UserError;
-use crate::core::write_file::{write_if_changed, WriteOpts, WriteResult};
+use crate::core::write_file::{check_containment, write_if_changed, WriteOpts, WriteResult};
 
 const HOOKS_REL_DIR: &str = ".claude/hooks";
 const SETTINGS_REL_PATH: &str = ".claude/settings.json";
@@ -20,7 +20,19 @@ const SKILL_REL_PATH: &str = ".claude/skills/agnosgram/SKILL.md";
 const SESSION_START_SCRIPT: &str = "agnosgram-session-start.mjs";
 const STOP_SCRIPT: &str = "agnosgram-stop-reminder.mjs";
 
+/// A stable, exact-matchable marker line agnosgram writes into every hook
+/// script it generates. `hooks_installed` requires this marker to be
+/// present in the on-disk `SESSION_START_SCRIPT` before treating hooks as
+/// already installed - a repo-committed file at that path with unrelated
+/// ("decoy") content must never be enough to make `adapt --refresh` install
+/// hooks on its own (agnosgram security audit, 2026-09-22, finding 1: the
+/// old "the path exists" check let a committed decoy script combine with a
+/// `.claude/settings.json` symlink to redirect the hook install into the
+/// user's global Claude Code config on a bare `--refresh`).
+const HOOK_SIGNATURE: &str = "// managed by agnosgram - do not edit";
+
 const SESSION_START_SCRIPT_CONTENT: &str = "#!/usr/bin/env node
+// managed by agnosgram - do not edit
 // Managed by agnosgram (`adapt --claude-hooks`). Safe to regenerate; re-run that
 // command to refresh after an upgrade.
 import { execSync } from \"node:child_process\";
@@ -44,6 +56,7 @@ process.stdout.write(
 ";
 
 const STOP_SCRIPT_CONTENT: &str = "#!/usr/bin/env node
+// managed by agnosgram - do not edit
 // Managed by agnosgram (`adapt --claude-hooks`). Safe to regenerate; re-run that
 // command to refresh after an upgrade.
 import { readFileSync } from \"node:fs\";
@@ -109,9 +122,22 @@ pub struct ClaudeHooksResult {
     pub written: Vec<WriteResult>,
 }
 
-/// True when a previous `--claude-hooks` run already installed the SessionStart hook.
+/// True when a previous `--claude-hooks` run already installed the
+/// SessionStart hook script - checked by *content*, not merely by path
+/// existing. `--refresh` uses this to decide whether to reinstall hooks
+/// without `--claude-hooks` being passed explicitly, so a repo-committed
+/// file that merely occupies this path (with unrelated or malicious
+/// content, and not carrying `HOOK_SIGNATURE`) must never count as
+/// "already installed" (agnosgram security audit, 2026-09-22, finding 1).
 pub fn hooks_installed(root: &Path) -> bool {
-    root.join(HOOKS_REL_DIR).join(SESSION_START_SCRIPT).exists()
+    let path = root.join(HOOKS_REL_DIR).join(SESSION_START_SCRIPT);
+    match fs::symlink_metadata(&path) {
+        Ok(meta) if meta.file_type().is_file() => {}
+        _ => return false,
+    }
+    fs::read_to_string(&path)
+        .map(|content| content.contains(HOOK_SIGNATURE))
+        .unwrap_or(false)
 }
 
 fn is_own_hook(hook: &Value, script_name: &str) -> bool {
@@ -197,7 +223,10 @@ pub fn install_claude_hooks(root: &Path) -> Result<ClaudeHooksResult, UserError>
         WriteOpts { executable: true },
     )?);
 
-    let settings_path = root.join(SETTINGS_REL_PATH);
+    // Security: validate before reading, same as the write below - a
+    // symlinked `.claude/settings.json` must never even be read through
+    // (agnosgram security audit, 2026-09-22, finding 1).
+    let settings_path = check_containment(root, SETTINGS_REL_PATH)?;
     let mut settings: Value = Value::object();
     if settings_path.exists() {
         let raw = fs::read_to_string(&settings_path).map_err(|e| UserError::new(e.to_string()))?;

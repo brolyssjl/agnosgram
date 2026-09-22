@@ -34,6 +34,26 @@ a start" with no structural check used to let an unrelated prose mention of
 the marker swallow everything up to the real block. Fix the flagged line (or
 restore the sentinel) and re-run `agnosgram adapt`.
 
+## Containment: writes never leave the project root
+
+Every adapter target is validated before it is read *or* written, so a
+symlink can never redirect an adapter outside the project: `CLAUDE.md`,
+`AGENTS.md`, or any other adapter's target being a symlink (or having a
+symlinked ancestor directory, e.g. a committed `.claude` -> `~/.claude`)
+makes that one adapter fail with a clear error naming the path, instead of
+reading or writing through the link. This is deliberate, not merely
+"skipped": an adapter target can legitimately need to be a symlink (see the
+`CLAUDE.md` <-> `AGENTS.md` alias below), but only when it still resolves
+*inside* the project - the same check that refuses an escaping symlink is
+what recognizes a safe, in-project one.
+
+Running several adapters at once (`agnosgram adapt --all`, or naming more
+than one) does not let one escaping target abort the rest: every other
+adapter is still written, and the command exits non-zero at the end so the
+failure isn't silent. Every write is also atomic (a temp file plus a
+same-directory rename), so a crash or kill mid-write can never leave a
+managed file truncated.
+
 **Every adapter here is instruction-driven, not automatic.** The pointer block
 tells the agent to read `.agnosgram/MEMORY.md` and follow its reading protocol -
 agnosgram never reads or writes agent context on its own behalf. The one exception
