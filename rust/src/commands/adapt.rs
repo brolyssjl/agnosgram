@@ -119,7 +119,7 @@ pub fn apply_adapter(
         String::new()
     };
 
-    let next = upsert_managed_block(&existing, &body);
+    let next = upsert_managed_block(&existing, &body, &rel_path)?;
 
     match write_if_changed(root, &rel_path, &next, WriteOpts::default()) {
         Ok(result) => Ok(AdaptResult {

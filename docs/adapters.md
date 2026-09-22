@@ -17,6 +17,23 @@ content outside the `<!-- agnosgram:start -->` / `<!-- agnosgram:end -->` marker
 Golden-file tests (`src/commands/adapt.test.ts`) prove run-twice-is-identical for
 every adapter.
 
+## How the managed block is recognised
+
+A `<!-- agnosgram:start -->` only opens a managed block when it begins its own
+line (leading whitespace is fine) *and* the next non-empty line is the
+`<!-- Managed by agnosgram ... -->` sentinel agnosgram itself writes right
+after the marker. The matching `<!-- agnosgram:end -->` must also begin its
+own line. A marker mentioned mid-line - for example in prose that describes
+the format - is never treated as a boundary; it's left alone as plain text.
+
+If a start marker begins a line but the sentinel is missing, or the markers
+in the file don't balance (a start with no end, or an end with no start),
+`adapt` refuses to write that file at all and reports the file and line
+number instead of guessing. This is deliberate: pairing "the first end after
+a start" with no structural check used to let an unrelated prose mention of
+the marker swallow everything up to the real block. Fix the flagged line (or
+restore the sentinel) and re-run `agnosgram adapt`.
+
 **Every adapter here is instruction-driven, not automatic.** The pointer block
 tells the agent to read `.agnosgram/MEMORY.md` and follow its reading protocol -
 agnosgram never reads or writes agent context on its own behalf. The one exception
