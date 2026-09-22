@@ -97,6 +97,44 @@ verify_checksum() {
   fi
 }
 
+# Best-effort build-provenance check on top of the checksum above. The
+# checksum only proves the binary matches SHA256SUMS from the same release -
+# it says nothing if both were replaced together (a compromised GitHub
+# account or Actions token can do that). `gh attestation verify` checks the
+# binary against the SLSA provenance attestation release.yml records via
+# `actions/attest-build-provenance`, which is signed through GitHub's OIDC
+# issuer and Sigstore, not just committed alongside the asset.
+#
+# Skipped (with a note, not a failure) when `gh` isn't installed, since it's
+# the only tool that can check this. Treated as a pass when the release
+# predates attestations (no attestations found - older releases have none).
+# Any other failure aborts the install and removes the temp files, same as a
+# checksum mismatch.
+verify_provenance() {
+  local file="$1" asset="$2"
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "Note: gh not found - build provenance not checked (checksum verified above). Install gh and re-run to also verify: gh attestation verify <file> --repo ${REPO}" >&2
+    return 0
+  fi
+
+  local out
+  if out="$(gh attestation verify "$file" --repo "$REPO" 2>&1)"; then
+    echo "$out"
+    echo "provenance verified"
+    return 0
+  fi
+
+  if echo "$out" | grep -qi "no attestations found"; then
+    echo "Note: no build attestations found for ${asset} (older releases predate provenance) - continuing on checksum verification alone." >&2
+    return 0
+  fi
+
+  echo "$out" >&2
+  echo "provenance verification FAILED for ${asset} - the release may have been tampered with. Nothing installed." >&2
+  return 1
+}
+
 install_binary() {
   local platform="$1" cpu="$2" tag="$3"
   local asset="${BIN_NAME}-${platform}-${cpu}"
@@ -127,6 +165,11 @@ install_binary() {
   fi
   echo "Checksum verified."
   rm -f "$sums_tmp"
+
+  if ! verify_provenance "$tmp" "$asset"; then
+    rm -f "$tmp"
+    return 1
+  fi
 
   chmod +x "$tmp"
   mv "$tmp" "$INSTALL_DIR/$BIN_NAME"

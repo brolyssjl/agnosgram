@@ -108,7 +108,9 @@ benchmark gates) against that exact binary, then creates a GitHub release
 with auto-generated notes. There is no npm publish path - prebuilt binaries
 are the permanent, only user-facing install story (Milestone 6 owner
 decision); a `publish-npm` job existed behind a disabled flag but was
-deleted 2026-08-22 during TS retirement rather than kept dormant.
+deleted 2026-08-22 during TS retirement rather than kept dormant. See
+[SECURITY.md](SECURITY.md) for how a downloaded release is verified end to
+end (checksum plus build-provenance attestation).
 
 To cut a release:
 
