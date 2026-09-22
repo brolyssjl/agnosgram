@@ -134,9 +134,15 @@ rather than release gates._
       `.agnosgram/journal` sync verified end to end, and both host repos have
       since completed the full capture -> distill -> archive cycle with
       `doctor` reporting a fully healthy store in each
-- [ ] Decide whether to go public / recruit at least one outside pilot
-      user (owner decision) (audit RM-03)
-- [ ] Docs site + case study (the 2026-07/08 host-project soak writeup)
+- [x] Decide whether to go public (owner decision, audit RM-03): both
+      repos flipped public 2026-09-15 after a clean pre-flight sweep
+      (doctor clean, no host-project names or secret patterns in the
+      current trees, release assets + LICENSE/README verified). Accepted
+      caveat: host-project names remain in old git history and closed PRs
+- [ ] Recruit at least one outside pilot user (the other half of RM-03;
+      unblocked by going public)
+- [ ] Docs site + case study (the 2026-07/08 host-project soak writeup;
+      unblocked by going public)
 
 ## Fixes & improvements
 _Open items from the 2026-08-22 audit + remediation (PRs gate#11/#12,
