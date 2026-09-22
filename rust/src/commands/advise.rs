@@ -226,20 +226,52 @@ fn as_string(v: Option<&Value>) -> Option<&str> {
     v.and_then(Value::as_str)
 }
 
+/// Outcome of resolving a report's `plan` field to a path on disk.
+#[derive(Debug)]
+enum PlanResolution {
+    /// Found and confirmed to sit under the project root or cwd.
+    Found(PathBuf),
+    /// Neither cwd-relative nor root-relative candidate exists.
+    NotFound,
+    /// A candidate exists but escapes both the project root and cwd.
+    OutsideProject,
+}
+
 /// Resolve a plan path the same way a person running the CLI would find it:
 /// cwd-relative first, then falling back to root-relative so `--validate`
 /// still works from a subdirectory of the project.
-fn resolve_plan_file(root: &Path, plan_field: &str) -> Option<PathBuf> {
-    let cwd = std::env::current_dir().ok()?;
-    let cwd_relative = cwd.join(plan_field);
-    if cwd_relative.exists() {
-        return Some(cwd_relative);
+///
+/// Finding #8 (2026-09-22 security audit): `plan_field` comes verbatim from
+/// the report JSON with no containment check, so an absolute path or a `../`
+/// escape let `--validate` read (and substring-check) any file readable by
+/// the process. Both candidates are checked for existence first (as before,
+/// since a nonexistent report path is a normal "plan moved" case, not a
+/// security concern), and only then is the winning candidate canonicalized -
+/// resolving symlinks and `..` - and required to sit under the canonicalized
+/// project root or cwd before its content is ever read.
+fn resolve_plan_file(root: &Path, plan_field: &str) -> PlanResolution {
+    let Ok(cwd) = std::env::current_dir() else {
+        return PlanResolution::NotFound;
+    };
+    let candidates = [cwd.join(plan_field), root.join(plan_field)];
+    for candidate in candidates {
+        if !candidate.exists() {
+            continue;
+        }
+        let Ok(canon_candidate) = fs::canonicalize(&candidate) else {
+            continue;
+        };
+        let canon_root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+        let canon_cwd = fs::canonicalize(&cwd).unwrap_or_else(|_| cwd.clone());
+        return if canon_candidate.starts_with(&canon_root)
+            || canon_candidate.starts_with(&canon_cwd)
+        {
+            PlanResolution::Found(canon_candidate)
+        } else {
+            PlanResolution::OutsideProject
+        };
     }
-    let root_relative = root.join(plan_field);
-    if root_relative.exists() {
-        return Some(root_relative);
-    }
-    None
+    PlanResolution::NotFound
 }
 
 fn validate_report(root: &Path, report_path: &str) -> Result<ValidateResult, UserError> {
@@ -376,15 +408,21 @@ fn validate_report(root: &Path, report_path: &str) -> Result<ValidateResult, Use
     let mut plan_text: Option<String> = None;
     if let Some(plan_field) = &plan_field {
         match resolve_plan_file(root, plan_field) {
-            Some(resolved) => {
+            PlanResolution::Found(resolved) => {
                 plan_text = fs::read_to_string(&resolved).ok();
             }
-            None => {
+            PlanResolution::NotFound => {
                 warn_issue!(
                     "coverage.plan_missing",
                     format!(
                         "plan file \"{plan_field}\" was not found on disk; excerpt checks skipped"
                     )
+                );
+            }
+            PlanResolution::OutsideProject => {
+                warn_issue!(
+                    "coverage.plan_outside_project",
+                    "plan path outside project, not read".to_string()
                 );
             }
         }
@@ -848,6 +886,123 @@ mod tests {
         assert!(!result.ok);
         assert!(!result.clear);
         assert!(result.issues.iter().any(|i| i.code == "consistency.clear"));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Finding #8 (2026-09-22 security audit, `resolve_plan_file`): before
+    /// this fix an absolute `plan` field or a `../`-escaping one was joined
+    /// straight onto cwd/root and read with no containment check - a
+    /// substring oracle over any file readable by the process. An absolute
+    /// path outside the project must resolve to `OutsideProject`, never
+    /// `Found`.
+    #[test]
+    fn read_containment_resolve_plan_file_refuses_an_absolute_path_outside_root() {
+        let root = tmp_root("plan-outside-abs");
+        match resolve_plan_file(&root, "/etc/hosts") {
+            PlanResolution::OutsideProject => {}
+            other => panic!("expected OutsideProject, got {other:?}"),
+        }
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Same finding: a relative `../`-escape must not be followed out of the
+    /// project either, even though the candidate path (built by naive
+    /// joining, before normalization/canonicalization) is not itself
+    /// absolute. Enough `../` segments to clear any real cwd or root nesting
+    /// depth, landing on `/etc/hosts` (present on every dev/CI machine this
+    /// crate targets) so the outcome does not depend on how deep the test
+    /// happens to run from.
+    #[test]
+    fn read_containment_resolve_plan_file_refuses_a_relative_escape_outside_root() {
+        let root = tmp_root("plan-outside-rel");
+        let deep_escape = format!("{}etc/hosts", "../".repeat(24));
+        match resolve_plan_file(&root, &deep_escape) {
+            PlanResolution::OutsideProject => {}
+            other => panic!("expected OutsideProject, got {other:?}"),
+        }
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A plan path that resolves under the project root is still read
+    /// normally - containment must not break the legitimate case.
+    #[test]
+    fn read_containment_resolve_plan_file_still_finds_an_in_root_plan() {
+        let root = tmp_root("plan-in-root");
+        fs::write(root.join("plan.md"), "plan body").unwrap();
+        match resolve_plan_file(&root, "plan.md") {
+            PlanResolution::Found(p) => assert!(p.ends_with("plan.md"), "{p:?}"),
+            other => panic!("expected Found, got {other:?}"),
+        }
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A plan path that simply does not exist anywhere is `NotFound`, not
+    /// `OutsideProject` - containment classification only applies once a
+    /// candidate is confirmed to exist.
+    #[test]
+    fn read_containment_resolve_plan_file_reports_not_found_when_absent_everywhere() {
+        let root = tmp_root("plan-absent");
+        match resolve_plan_file(&root, "no-such-plan.md") {
+            PlanResolution::NotFound => {}
+            other => panic!("expected NotFound, got {other:?}"),
+        }
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// End-to-end through `--validate`: a report whose `plan` field points
+    /// outside the project must warn (never error - a bad `plan` field is
+    /// not grounds to fail the whole report) and must never have its content
+    /// read, so the excerpt substring checks never run against it.
+    #[test]
+    fn read_containment_validate_warns_and_skips_content_checks_for_an_outside_plan() {
+        let root = tmp_root("plan-outside-validate");
+        fs::write(
+            root.join(".agnosgram/lessons/pitfalls.md"),
+            "# Pitfalls\n\n---\nid: LES-001\ntype: pitfall\nscope: [core]\nconfidence: high\ncreated: 2026-07-21\nlast_verified: 2026-07-21\nsource: journal/2026-07.md\n---\nDo not use require() in this ESM package.\n",
+        )
+        .unwrap();
+        let report = r#"{
+  "agnosgram_advise": 1,
+  "plan": "/etc/hosts",
+  "generated": "2026-07-27",
+  "checked_ids": ["LES-001"],
+  "contradictions": [{
+    "record_id": "LES-001",
+    "kind": "empirical",
+    "severity": "caution",
+    "plan_excerpt": "this substring is not in /etc/hosts",
+    "record_excerpt": "Do not use require()",
+    "confidence": "high",
+    "last_verified": "2026-07-21",
+    "explanation": "unrelated to the plan-path check"
+  }],
+  "clear": false
+}"#;
+        let report_path = root.join("report.json");
+        fs::write(&report_path, report).unwrap();
+        let result = validate_report(&root, report_path.to_str().unwrap()).unwrap();
+
+        assert!(
+            result.issues.iter().any(|i| i.level == "warn"
+                && i.code == "coverage.plan_outside_project"
+                && i.message == "plan path outside project, not read"),
+            "{:?}",
+            result.issues
+        );
+        // The plan was never read, so the excerpt substring check against it
+        // has nothing to compare against and must not fire - a mismatch
+        // finding here would mean the file was actually opened.
+        assert!(
+            !result
+                .issues
+                .iter()
+                .any(|i| i.code == "excerpt.plan_mismatch"),
+            "{:?}",
+            result.issues
+        );
+        // A plan pointing outside the project is a warning, not an error:
+        // exit code stays 0 without --strict, as designed.
+        assert_eq!(result.errors, 0, "{:?}", result.issues);
         fs::remove_dir_all(&root).unwrap();
     }
 

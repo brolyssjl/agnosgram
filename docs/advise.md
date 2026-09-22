@@ -46,7 +46,11 @@ flagged contradiction is actually correct:
 - **Excerpts and coverage** (warnings, non-blocking) - `plan_excerpt` should be
   a real substring of the plan file, `record_excerpt` a real substring of the
   cited record's body; `checked_ids` should cover the whole digest, not a
-  sample.
+  sample. The report's `plan` field is only ever read back from disk when the
+  resolved path sits under the project root or the current directory; a
+  `plan` that points elsewhere (absolute, or escaping via `../`) is reported
+  as `coverage.plan_outside_project` and its excerpt checks are skipped
+  rather than reading the file.
 
 Exit codes: `0` when there are no errors, `1` when there is at least one error,
 and also `1` under `--strict` when the report is valid but `clear` is `false`

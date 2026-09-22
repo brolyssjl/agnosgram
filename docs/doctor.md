@@ -44,6 +44,7 @@ format. Full field-by-field contract: [docs/schema-reference.md](schema-referenc
 | `file.stale` | a freshness-table row is older than `staleness_days` |
 | `budget.over` | a file exceeds its configured token budget |
 | `link.broken` | a Markdown link points to a missing local file |
+| `link.outside-project` | a Markdown link target is absolute or normalizes outside the project root - never probed for existence, so it cannot be used to test whether an arbitrary path exists |
 | `supersedes.orphan` | `supersedes:` references an id no record defines |
 | `record.near-duplicate` | two same-type records overlap heavily - merge them via `supersedes:` |
 | `source.missing` | a record's `source:` path does not exist under `.agnosgram/` (archived journal months in `journal/archive/` still resolve) |

@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 use std::env;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use crate::core::args::{parse_cli_args, ArgsConfig, OptionDef};
 use crate::core::config::{load_config, AgnosgramConfig};
@@ -142,9 +142,55 @@ fn find_markdown_link_targets(line: &str) -> Vec<String> {
     out
 }
 
-/// Markdown links to local files that do not exist, relative to the file's dir.
-fn check_broken_links(file: &StoreFile, findings: &mut Vec<Finding>) {
+/// Lexically collapse `.`/`..` components without touching the filesystem
+/// or resolving symlinks. Mirrors `core::paths`'s private `lexical_absolute`
+/// logic but is kept local to this module (task scope: this file's helpers
+/// only) - `path` must already be absolute.
+fn lexically_normalize(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for comp in path.components() {
+        match comp {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// Resolve a markdown link `target` against the directory containing the
+/// file it appears in, refusing to classify (let alone probe) anything that
+/// could escape the project root.
+///
+/// Finding #7 (2026-09-22 security audit): `file.path.parent().join(target)`
+/// let an absolute target replace the base entirely and let `..` walk out of
+/// the store, turning the presence/absence of a `link.broken` warning into a
+/// filesystem existence oracle over arbitrary paths. Absolute targets are
+/// refused outright; relative targets are resolved and lexically normalized
+/// (no filesystem access) and must land under `root` to be probed at all -
+/// the check happens strictly before any `path_exists` call.
+fn resolve_link_target(file_dir: &Path, target: &str, root: &Path) -> Option<PathBuf> {
+    if Path::new(target).is_absolute() {
+        return None;
+    }
+    let candidate = lexically_normalize(&file_dir.join(target));
+    let root_norm = lexically_normalize(root);
+    if candidate.starts_with(&root_norm) {
+        Some(candidate)
+    } else {
+        None
+    }
+}
+
+/// Markdown links to local files that do not exist, relative to the file's
+/// dir. Targets that are absolute or normalize outside the project root are
+/// reported as `link.outside-project` instead of being probed - see
+/// `resolve_link_target`.
+fn check_broken_links(file: &StoreFile, root: &Path, findings: &mut Vec<Finding>) {
     let lines: Vec<&str> = file.text.split('\n').collect();
+    let file_dir = file.path.parent().unwrap_or_else(|| Path::new(""));
     for (i, raw_line) in lines.iter().enumerate() {
         let line = raw_line.strip_suffix('\r').unwrap_or(raw_line);
         for raw_target_full in find_markdown_link_targets(line) {
@@ -158,20 +204,31 @@ fn check_broken_links(file: &StoreFile, findings: &mut Vec<Finding>) {
             if target.is_empty() {
                 continue;
             }
-            let resolved = file
-                .path
-                .parent()
-                .unwrap_or_else(|| Path::new(""))
-                .join(target);
-            if !path_exists(&resolved) {
-                findings.push(Finding {
-                    level: Level::Warn,
-                    code: "link.broken".to_string(),
-                    file: file.rel.clone(),
-                    line: Some(i + 1),
-                    id: None,
-                    message: format!("broken link to \"{target}\""),
-                });
+            match resolve_link_target(file_dir, target, root) {
+                Some(resolved) => {
+                    if !path_exists(&resolved) {
+                        findings.push(Finding {
+                            level: Level::Warn,
+                            code: "link.broken".to_string(),
+                            file: file.rel.clone(),
+                            line: Some(i + 1),
+                            id: None,
+                            message: format!("broken link to \"{target}\""),
+                        });
+                    }
+                }
+                None => {
+                    findings.push(Finding {
+                        level: Level::Warn,
+                        code: "link.outside-project".to_string(),
+                        file: file.rel.clone(),
+                        line: Some(i + 1),
+                        id: None,
+                        message: format!(
+                            "link target \"{target}\" resolves outside the project; not checked"
+                        ),
+                    });
+                }
             }
         }
     }
@@ -548,7 +605,7 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
                 ),
             });
         }
-        check_broken_links(file, &mut findings);
+        check_broken_links(file, root, &mut findings);
     }
 
     // 10. Files under .agnosgram/ untracked by git. Friction and lessons
@@ -897,6 +954,74 @@ mod tests {
         let c = codes(&root);
         assert!(c.contains(&"link.broken".to_string()));
         assert!(c.contains(&"budget.over".to_string()));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Finding #7 (2026-09-22 security audit, `check_broken_links`): before
+    /// this fix, `file.path.parent().join(target)` let an absolute target
+    /// replace the base and let `..` walk out of the store, so probing the
+    /// resolved path with `path_exists` turned "is there a `link.broken`
+    /// warning" into an existence oracle over arbitrary filesystem paths.
+    /// An existing absolute path (`/etc/passwd`) and a non-existing one must
+    /// now produce the exact same `link.outside-project` finding - no
+    /// existence check ever runs for either - while a target that lexically
+    /// normalizes back under the project root is still probed for real.
+    #[test]
+    fn read_containment_no_existence_oracle_for_out_of_root_link_targets() {
+        let root = tmp_store("read-containment-links");
+        fs::write(root.join("README.md"), "# readme\n").unwrap();
+        let status = root.join(".agnosgram/state/status.md");
+        fs::write(
+            &status,
+            "# Status\n\n[x](/etc/passwd) [y](/etc/definitely-not-here) [z](../../README.md) [w](./missing-in-root.md)\n",
+        )
+        .unwrap();
+
+        let config = load_config(&root).unwrap();
+        let findings = collect_findings(&root, &config);
+        let status_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| f.file == ".agnosgram/state/status.md")
+            .collect();
+
+        let has = |code: &str, needle: &str| {
+            status_findings
+                .iter()
+                .any(|f| f.code == code && f.message.contains(needle))
+        };
+
+        // Same finding regardless of whether the absolute target exists on
+        // this machine - no oracle.
+        assert!(
+            has("link.outside-project", "/etc/passwd"),
+            "{status_findings:?}"
+        );
+        assert!(
+            has("link.outside-project", "/etc/definitely-not-here"),
+            "{status_findings:?}"
+        );
+        assert!(
+            !has("link.broken", "/etc/passwd") && !has("link.broken", "/etc/definitely-not-here"),
+            "absolute targets must never be probed with path_exists: {status_findings:?}"
+        );
+
+        // A `..` target that normalizes back under the project root (and
+        // exists) is neither outside-project nor broken.
+        assert!(
+            !has("link.outside-project", "../../README.md"),
+            "{status_findings:?}"
+        );
+        assert!(
+            !has("link.broken", "../../README.md"),
+            "{status_findings:?}"
+        );
+
+        // A genuinely missing in-root target still gets a real link.broken.
+        assert!(
+            has("link.broken", "./missing-in-root.md"),
+            "{status_findings:?}"
+        );
+
         fs::remove_dir_all(&root).unwrap();
     }
 
