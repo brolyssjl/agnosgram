@@ -18,6 +18,13 @@ agnosgram doctor --strict   # exit non-zero on warnings too, not just errors
 
 Run it in CI to keep memory healthy the same way you keep code healthy.
 
+## Anti-rot
+
+Every curated entry carries `confidence` + `last_verified`; `config.yml` sets a
+`staleness_days` window and per-file token budgets. `doctor` turns that into
+an executable check you can run in CI - it is the specification of the frozen
+format. Full field-by-field contract: [docs/schema-reference.md](schema-reference.md).
+
 ## What it checks
 
 **Errors** (block a clean run):

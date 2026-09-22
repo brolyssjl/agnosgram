@@ -11,29 +11,18 @@
 
 </div>
 
-Plain Markdown + YAML
-frontmatter, committed to your repo, reviewable in PRs. No database, no server, no
-API keys, no network after install. Any agent that can read a file can use it.
+## What it is
 
-> Every session with a coding agent starts from zero: it re-discovers the
-> architecture, repeats last month's mistakes, and re-litigates settled decisions.
-> Existing fixes are agent-captive (`CLAUDE.md`, `.cursor/rules`, Memory Bank).
-> Agnosgram stores the memory once, in the repo, and makes the **agents adapt to
-> it** - never the reverse.
+Every session with a coding agent starts from zero. It re-discovers your
+architecture, repeats mistakes your team already fixed, and re-litigates
+decisions you already made. The usual fixes for this are agent-captive:
+`CLAUDE.md`, `.cursor/rules`, Memory Bank, whatever file format your current
+tool wants. Agnosgram stores that memory once, in your repo, and makes
+agents adapt to it, never the other way around.
 
-> **Status:** stable `1.x` - the release badge above tracks the latest
-> version. Milestones 1-5 plus the Milestone 6 Rust port are done
-> and dogfooded on this repo: capture
-> (`init` / `adapt` / `log`), the self-maintaining half (`doctor` / `distill` /
-> `bootstrap`), retrieval (`pack` / `show` / `advise`), reach (every mainstream
-> adapter, opt-in Claude Code hooks, `install.sh` + binaries, SDD coexistence), the
-> reflexive loop (`feedback` / `reflect`, a strictly separate `meta/` namespace),
-> and the Rust port. **The on-disk `.agnosgram/` format is frozen** at format
-> version 1 - safe to adopt on a real, even legacy, project - and the CLI surface
-> is frozen as the conformance-checked contract (DEC-0004), pinned by
-> `rust/tests/`. **Rust is the only implementation** - the TypeScript reference
-> it was ported from was retired 2026-08-22. See [ROADMAP.md](ROADMAP.md) and the
-> [schema reference](docs/schema-reference.md).
+The store is plain Markdown + YAML frontmatter, committed to your repo and
+reviewable in PRs. There is no database, no server, no API keys, and no
+network after install. Any agent that can read a file can use it.
 
 ## Install
 
@@ -41,41 +30,37 @@ API keys, no network after install. Any agent that can read a file can use it.
 curl -fsSL https://raw.githubusercontent.com/brolyssjl/agnosgram/main/install.sh | bash
 ```
 
-If the plain download ever fails (rate limiting, a flaky network), run the
-script from a clone instead - it falls back to `gh release download`, which
-reuses your existing GitHub auth:
-
-```bash
-git clone https://github.com/brolyssjl/agnosgram.git && ./agnosgram/install.sh
-```
-
-Fetches the prebuilt binary for your platform from the latest GitHub release
-and puts it on `PATH` - no local Node, no local Rust toolchain required.
-Binaries have shipped since `0.9.0` (`linux-x64`, `darwin-arm64`) and are
-cargo-built from `1.0.0` onward. No matching binary yet? The script falls
-back to honest build-from-source steps instead of guessing.
-
-`agnosgram` is not on npm and never will be - the Milestone 6 owner decision
-(see [ROADMAP.md](ROADMAP.md)) makes prebuilt binaries the permanent
-user-facing install path.
-
-Build from source instead - zero external crates, only a stable Rust
-toolchain required:
+Pin a version with `AGNOSGRAM_VERSION=1.5.0` before the command. No prebuilt
+binary for your platform? Build from source, zero external crates required:
 
 ```bash
 cargo build --release --manifest-path rust/Cargo.toml
 # -> rust/target/release/agnosgram
 ```
 
-Full details: **[docs/install.md](docs/install.md)**.
+Full details, the `gh`-fallback for flaky networks, and troubleshooting:
+[docs/install.md](docs/install.md).
 
 ## Quick start
 
 ```bash
 agnosgram init                 # scaffold .agnosgram/, detect agents + SDD, write adapters
 agnosgram adapt claude agents  # inject the managed pointer block into CLAUDE.md / AGENTS.md
-agnosgram log --did "..." --learned "..." --next "..."   # append a journal entry
 ```
+
+`init` creates `.agnosgram/` in your repo; `adapt` adds a short block to your
+agent's config file telling it to read `.agnosgram/MEMORY.md` first. Commit
+both. From there, the day-to-day loop is:
+
+```bash
+agnosgram log --did "..." --learned "..." --next "..."   # append a journal entry
+agnosgram doctor                                          # check the store for rot
+agnosgram distill                                         # curate the journal into lessons
+agnosgram advise <plan-path>                              # check a plan against memory first
+```
+
+Your agent reads the store itself because the pointer block tells it to.
+Claude Code can also do this automatically: `agnosgram adapt --claude-hooks`.
 
 ## What it creates
 
@@ -90,157 +75,57 @@ agnosgram log --did "..." --learned "..." --next "..."   # append a journal entr
 └── journal/               # append-only session log, one file per month
 ```
 
-`meta/` (tool friction, not host-project memory) is opt-in: `init` never
-scaffolds it, `agnosgram feedback` creates it on first use. See
-[docs/feedback.md](docs/feedback.md).
-
-Adapters inject only a ~10-line managed pointer block (between
-`<!-- agnosgram:start -->` / `<!-- agnosgram:end -->` markers) that tells the agent
-to read `.agnosgram/MEMORY.md` first. The block is idempotent - re-running `adapt`
-rewrites only that region and never touches your own content. `AGENTS.md` is the
-universal fallback for any agent.
-
-## Supported adapters
-
-| Tool | `adapt` key | Target file |
-|---|---|---|
-| Claude Code | `claude` | `CLAUDE.md` (shared, managed block) |
-| Cursor | `cursor` | `.cursor/rules/agnosgram.mdc` (dedicated) |
-| Windsurf | `windsurf` | `.windsurf/rules/agnosgram.md` (dedicated) |
-| Cline | `cline` | `.clinerules/agnosgram.md` (dedicated) |
-| Roo Code | `roo` | `.roo/rules/agnosgram.md` (dedicated) |
-| Codex, OpenCode, or any other `AGENTS.md` reader | `agents` | `AGENTS.md` (shared, managed block) |
-
-Codex and OpenCode both read `AGENTS.md` natively, so `init`/`adapt` detect them
-(`.codex/`, `.opencode/`, `opencode.json`) and route to the `agents` adapter instead
-of writing a duplicate file. See [docs/adapters.md](docs/adapters.md) for detection
-signals and per-tool notes.
-
-**Automatic context injection is Claude Code-only**, and only when you opt in with
-`agnosgram adapt --claude-hooks` (`SessionStart` runs `pack`, `Stop` runs `log` - see
-[docs/claude-hooks.md](docs/claude-hooks.md)). Every other adapter above, including
-plain `claude` without `--claude-hooks`, is instruction-driven: the pointer block
-tells the agent to read `.agnosgram/MEMORY.md` and follow its protocol itself.
-Agnosgram never injects memory into an agent that isn't reading its own hooks.
+`meta/` is opt-in tool-friction storage: `init` never scaffolds it, only
+`agnosgram feedback` does. See [docs/feedback.md](docs/feedback.md).
 
 ## Commands
 
-| Command | What it does |
+| Command | What it does | Docs |
+|---|---|---|
+| `init` | Scaffold `.agnosgram/`, detect agents and SDD frameworks, write adapters. | |
+| `adapt` | Insert or refresh an agent's managed pointer block. | [guide](docs/adapters.md) |
+| `log` | Append a journal entry (agents call this at session end). | |
+| `doctor` | Lint the store: schema, staleness, budgets, links, safety. | [guide](docs/doctor.md) |
+| `distill` | Curate the journal into lessons and decisions. | [guide](docs/distill.md) |
+| `bootstrap` | Seed `context/` from an existing codebase. | [guide](docs/bootstrap.md) |
+| `show` | Print records matching an id, scope tag, or type. | [guide](docs/show.md) |
+| `pack` | Emit a token-budgeted context bundle. | [guide](docs/pack.md) |
+| `advise` | Check a plan against memory before you commit to it. | [guide](docs/advise.md) |
+| `feedback` | Capture friction with the tool itself, separate from project memory. | [guide](docs/feedback.md) |
+| `reflect` | Turn friction and recent journal entries into improvement proposals. | [guide](docs/reflect.md) |
+
+Run `agnosgram <command> --help` for flags. Judgment steps (`distill`,
+`bootstrap`, `advise`, `reflect`) emit a prompt for your agent and validate
+the result mechanically; the CLI itself never calls an LLM.
+
+## Supported agents
+
+| Tool | Target file |
 |---|---|
-| `agnosgram init` | Scaffold `.agnosgram/`, detect SDD frameworks + agents, write adapters. `--adapt <list\|none>`, `--force`, `--no-journal-commit`, `--json`. |
-| `agnosgram adapt [claude\|cursor\|windsurf\|cline\|roo\|agents ...]` | Insert/refresh the managed pointer block. `--all`, `--refresh`, `--claude-hooks` (opt-in Claude Code `SessionStart`/`Stop` hooks + skill, see [guide](docs/claude-hooks.md)), `--json`. |
-| `agnosgram log` | Append a journal entry from flags (`--did/--learned/--decided/--avoid/--next`) or `--stdin`. Auto-detects branch. `--json` for machine consumers. |
-| `agnosgram doctor` | Lint the store: schema, staleness, budgets, broken links, duplicate/near-duplicate ids, and safety lints (secret scan + prompt-injection guard). `--strict`, `--json`. See [guide](docs/doctor.md). |
-| `agnosgram distill` | Emit a compaction prompt (merge via `supersedes:`, never append near-dups); `--validate <file>` checks a distilled result; `--archive <YYYY-MM>` retires an absorbed journal month. See [guide](docs/distill.md). |
-| `agnosgram bootstrap` | Emit a prompt that seeds `context/architecture.md` + `domain.md` from an existing codebase - fast onboarding for a legacy repo. See [guide](docs/bootstrap.md). |
-| `agnosgram show <topic>` | Print records matching an id, scope tag, or type - for agents with weak file navigation. `--type`, `--format json\|toon`. See [guide](docs/show.md). |
-| `agnosgram pack` | Token-budgeted context bundle: status + lessons (+ decisions when `--scope`d). Human output is the Markdown bundle itself. Runs the prompt-injection lint over assembled content - warns on stderr and marks stdout on a hit, never redacts. `--scope`, `--budget`, `--format json\|toon`. See [guide](docs/pack.md). |
-| `agnosgram advise <plan-path>` | Emit a plan-vs-memory contradiction review prompt; `--validate <report>` mechanically checks the agent's JSON report. `--strict`, `--format json\|toon`. See [guide](docs/advise.md). |
-| `agnosgram feedback "<text>"` | Capture tool friction into `.agnosgram/meta/` - never host-project memory, never read by `pack`/`show`/`advise`. `--scope`, `--confidence`, `--stdin`, `--share` (prints a ready-to-run `gh issue create` command; never runs it). See [guide](docs/feedback.md). |
-| `agnosgram reflect` | Emit a prompt turning tool friction + recent journal months into improvement proposals and candidate roadmap milestones. Read-only; `ROADMAP.md` stays owner-edited. `--months`, `--format json\|toon`. See [guide](docs/reflect.md). |
+| Claude Code | `CLAUDE.md` (shared) |
+| Cursor | `.cursor/rules/agnosgram.mdc` |
+| Windsurf | `.windsurf/rules/agnosgram.md` |
+| Cline | `.clinerules/agnosgram.md` |
+| Roo Code | `.roo/rules/agnosgram.md` |
+| Codex, OpenCode, or anything else that reads `AGENTS.md` | `AGENTS.md` (shared) |
 
-Judgment steps (`distill`, `bootstrap`, `advise`, `reflect`) **emit a prompt** for your
-agent and then validate the result mechanically (where there is a result to check) -
-the CLI itself never calls an LLM.
+Every adapter is instruction-driven: it writes a pointer block, and the agent
+reads it and follows the protocol itself. The one exception is Claude Code
+with `agnosgram adapt --claude-hooks`, which runs `pack`/`log` automatically
+through session hooks. Detection rules and per-tool notes:
+[docs/adapters.md](docs/adapters.md).
 
-Milestone 4 added the remaining adapters (Windsurf, Cline/Roo, OpenCode, Codex), a
-Claude Code skill with session hooks (see [docs/claude-hooks.md](docs/claude-hooks.md)),
-and `install.sh` + prebuilt binaries (see [docs/install.md](docs/install.md)). Milestone 5
-added the reflexive loop: `feedback` captures tool friction into `.agnosgram/meta/`
-(see [docs/feedback.md](docs/feedback.md)), and `reflect` turns it into proposals
-(see [docs/reflect.md](docs/reflect.md)) - the tool proposes, a human decides.
+## Learn more
 
-## Anti-rot
-
-Every curated entry carries `confidence` + `last_verified`; `config.yml` sets a
-`staleness_days` window and per-file token budgets. `agnosgram doctor` turns that
-into an executable check you can run in CI - it is the specification of the frozen
-format. Full field-by-field contract: **[docs/schema-reference.md](docs/schema-reference.md)**.
-
-## Status & roadmap
-
-Milestones 1-5 plus the Milestone 6 Rust port are done and dogfooded: capture
-(`init` / `adapt` / `log`), the
-self-maintaining half (`doctor` / `distill` / `bootstrap`), retrieval (`pack` /
-`show` / `advise`), reach (adapters, Claude Code hooks, install.sh + binaries,
-SDD coexistence), the reflexive loop (`feedback` / `reflect`), and the Rust
-port, with the on-disk format frozen at version 1. Round 3 (post-`1.0.0`
-hardening) is underway: the daily-driver soak is done and the `1.x` releases
-hardened `doctor`, the scanner, and the trust posture; the upgrade story and
-a docs site remain. Full plan
-with progress checkboxes and release checkpoints: **[ROADMAP.md](ROADMAP.md)**.
-
-**`0.5.0`** was the first release safe to adopt on a real project: frontmatter
-schema validation, `doctor`, `distill`, and a frozen on-disk format.
-**`0.8.0`** added the killer feature: `advise`, the contradiction-catcher, plus
-`pack` and `show`. **`0.9.0`** was Milestone 4: every mainstream adapter,
-opt-in Claude Code hooks, `install.sh` + prebuilt binaries, and deeper SDD
-coexistence. **`0.10.0`** was Milestone 5, the reflexive loop:
-`feedback` captures tool friction into a separate, additive `meta/` namespace;
-`reflect` turns it into proposals - the tool proposes, a human decides.
-**`0.11.0`** opened Milestone 6: the CLI surface frozen as the Rust port
-contract (DEC-0004), enforced by a conformance suite run against
-`$AGNOSGRAM_BIN`. **`1.0.0`** ships the Rust port itself, straight from the
-merged Round 2 conformance evidence (104/104 on `linux-x64` and
-`darwin-arm64`) with no rc cycle - the Rust binary became the canonical
-distribution, with the TypeScript implementation staying in-repo as
-reference. That reference was retired 2026-08-22, once its conformance
-suite had been ported to `rust/tests/`: Rust is now the only implementation.
-
-## How it compares
-
-| | Storage | Works with | Reviewable in PRs | Anti-rot |
-|---|---|---|---|---|
-| **Agnosgram** | plain Markdown in the repo | any agent (adapters + AGENTS.md fallback) | yes | `last_verified` + `doctor` |
-| engram | per-user SQLite + 19 MCP tools | MCP-capable agents only | no (opaque DB) | - |
-| Cline Memory Bank | Markdown, single tool | Cline / Roo | in-repo but tool-bound | - |
-| braingram | Markdown | Claude Code only | yes | - |
-| AGENTS.md / CLAUDE.md | Markdown instructions | per-format | yes | no lifecycle or schema |
-
-The difference: memory as **reviewable documentation that lives in your repo**,
-portable across agents, with a capture→distill lifecycle and staleness tracking -
-not a per-user database and not a single-agent file.
-
-## Design principles
-
-1. **Storage is plain Markdown + YAML, in the repo.** Human-readable, PR-reviewable. Never a database or opaque blob.
-2. **The CLI never calls an LLM.** For judgment steps it *emits a precise prompt* for whatever agent is present, then validates the result mechanically. No API keys, no vendor lock-in.
-3. **Agents adapt to the memory, never the reverse.** One source template; content lives only in `.agnosgram/`.
-4. **Capture is cheap, distillation is deliberate.** Append-only journal (4 fixed slots) → curated lessons/decisions via explicit `distill`.
-5. **Anti-rot is first-class.** Every entry carries `confidence` + `last_verified`; budgets per file; `doctor` flags staleness.
-6. **Integrations are advisory, never load-bearing.** SDD frameworks (OpenSpec, Spec Kit, BMAD, Agent OS) only add hint lines; nothing depends on their presence.
-
-## Trust posture
-
-The store is plain Markdown that anyone with repo write access can edit, so
-Agnosgram never trusts it beyond the structured frontmatter it validates -
-and neither should the agents reading it:
-
-- **Store content is data, not instructions.** Every prompt-emitting command
-  (`pack`, `distill`, `reflect`, `advise`, `bootstrap`) treats embedded store
-  content as untrusted input. Prompts carry a standing trust note telling the
-  agent that directive-looking text inside store files is content to report
-  on, never something to obey.
-- **Warn-and-mark, never drop.** `doctor` and the prompt emitters scan for
-  prompt-injection phrasing (and `doctor` for leaked secrets). Hits produce a
-  visible warning banner and stderr detail naming the file and record - the
-  content still reaches the agent, just labeled. Silently dropping a false
-  positive would turn a lint into a data-loss mechanism.
-- **The tool's own behavior never depends on free text.** No store body can
-  change what the CLI does; only validated frontmatter fields (ids, types,
-  dates, budgets) drive behavior.
-- **No telemetry, ever.** The CLI never phones home and never calls an LLM.
-  The `meta/` friction namespace is the maintainer's own dogfooding channel
-  (see below); a regular install neither creates nor reads it.
-
-### Feedback from users
-
-`agnosgram feedback`/`reflect` exist so the maintainer can dogfood the tool
-in their own projects - `init` never scaffolds `meta/`, and nothing in a
-normal workflow touches it. If Agnosgram frustrates you, the supported
-channel is an issue or a PR on this repo; if your team does want the
-friction loop locally, it works in any store, and gitignoring `meta/` to
-keep it out of your history is a fully supported choice.
+- [docs/install.md](docs/install.md) - the full install story and troubleshooting
+- [docs/adapters.md](docs/adapters.md) and [docs/claude-hooks.md](docs/claude-hooks.md) - agent integration details
+- [docs/doctor.md](docs/doctor.md) - anti-rot checks and the safety lints
+- [docs/distill.md](docs/distill.md), [docs/bootstrap.md](docs/bootstrap.md), [docs/show.md](docs/show.md), [docs/pack.md](docs/pack.md), [docs/advise.md](docs/advise.md) - one guide per command
+- [docs/feedback.md](docs/feedback.md) and [docs/reflect.md](docs/reflect.md) - the opt-in friction loop
+- [docs/schema-reference.md](docs/schema-reference.md) - the frozen on-disk format, field by field
+- [docs/trust-posture.md](docs/trust-posture.md) - how Agnosgram treats store content as untrusted data
+- [docs/how-it-compares.md](docs/how-it-compares.md) - comparison table and design principles
+- [ROADMAP.md](ROADMAP.md) - release history and what's next
 
 ## Development
 
@@ -249,7 +134,8 @@ cargo build --release --manifest-path rust/Cargo.toml
 cargo test --manifest-path rust/Cargo.toml   # unit + conformance + token benchmark gates
 ```
 
-Full dev loop (fmt, clippy, and what each test tier covers): [Rust implementation section in CONTRIBUTING.md](CONTRIBUTING.md#rust-implementation).
+Full dev loop (fmt, clippy, and what each test tier covers):
+[Rust implementation section in CONTRIBUTING.md](CONTRIBUTING.md#rust-implementation).
 
 ## License
 
