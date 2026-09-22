@@ -4,7 +4,9 @@ Capture friction with **Agnosgram itself** - a confusing command, a missing
 flag, a `doctor` message that didn't help - as its own entries, kept strictly
 apart from your project's own memory (`lessons/`, `decisions/`, `context/`).
 
-**Who this is for:** the friction loop (`feedback` + `reflect`) is the
+## Who this is for
+
+The friction loop (`feedback` + `reflect`) is the
 maintainer's dogfooding channel, run in projects the maintainer owns. A
 regular install never creates or reads `meta/` - if the tool frustrates you,
 the supported channel is opening an issue or a PR (see "The opt-in community
@@ -13,7 +15,7 @@ store; gitignoring `meta/` to keep it out of shared history is a fully
 supported choice (the `git.untracked` doctor check respects gitignore).
 Friction bodies are free text that later gets embedded into `reflect`
 prompts, so they get the same untrusted-content treatment as everything else
-in the store - see README's "Trust posture".
+in the store - see [docs/trust-posture.md](trust-posture.md).
 
 ```bash
 agnosgram feedback "doctor's source.missing warning didn't mention archive/"
