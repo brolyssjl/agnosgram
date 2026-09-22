@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/agnosgram-mascot.svg" width="150" alt="Agnosgram's mascot: an elephant holding a pencil in its trunk">
+  <img src="docs/assets/agnosgram-mascot.svg" width="150" alt="Agnosgram's mascot: a cyberpunk elephant with a glowing stylus in its trunk">
 
 # Agnosgram
 
