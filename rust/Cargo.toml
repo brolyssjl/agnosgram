@@ -1,6 +1,6 @@
 [package]
 name = "agnosgram"
-version = "1.5.1"
+version = "1.6.0"
 edition = "2021"
 description = "agent-agnostic, per-project memory (plain Markdown in your repo)"
 license = "MIT"
