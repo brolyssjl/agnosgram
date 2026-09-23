@@ -253,6 +253,9 @@ main() {
 # verify_checksum/verify_provenance in isolation against a local fixture
 # pair instead of a real download - source this file, then call either
 # function directly).
-if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+# Run main on direct execution (./install.sh) and when piped (curl | bash),
+# where bash has no BASH_SOURCE at all - under `set -u` that unset element
+# used to abort the script before main ran. Sourcing (for tests) skips main.
+if [ -z "${BASH_SOURCE[0]:-}" ] || [ "${BASH_SOURCE[0]}" = "${0}" ]; then
   main "$@"
 fi
