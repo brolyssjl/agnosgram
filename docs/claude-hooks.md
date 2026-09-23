@@ -60,6 +60,26 @@ scripts) - it reports `unchanged` for anything already in place. After the first
 too (it detects they're already installed), so upgrading doesn't require
 remembering the flag again.
 
+## `--refresh` detects "already installed" by content, not by path
+
+Every hook script agnosgram generates carries a fixed marker line
+(`// managed by agnosgram - do not edit`). `agnosgram adapt --refresh` only
+re-runs the hook install when `.claude/hooks/agnosgram-session-start.mjs`
+exists **and** contains that marker - a file merely sitting at that path
+(e.g. an unrelated script committed by someone else, accidentally or not)
+never counts as "already installed". This matters because `--refresh` is the
+one path that turns hooks on without you having to type `--claude-hooks`
+yourself; gating it on the tool's own signature, rather than bare path
+existence, means a committed file can't make `--refresh` write into
+`.claude/settings.json` (or anywhere else) on your behalf. Pass
+`--claude-hooks` explicitly any time you do want to (re)install regardless.
+
+Every write this command makes - the hook scripts, the skill file, and the
+`.claude/settings.json` merge - also goes through the same project-root
+containment check as every other agnosgram-managed file; see
+[docs/adapters.md](adapters.md#containment-writes-never-leave-the-project-root)
+for what that guarantees.
+
 ## Requirements
 
 The hook scripts shell out to the `agnosgram` binary on `PATH` (see the

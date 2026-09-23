@@ -11,9 +11,9 @@ use crate::core::config::{load_config, save_config, AgnosgramConfig, Toggle};
 use crate::core::detect::{detect_agents, detect_sdd};
 use crate::core::json::Value;
 use crate::core::markers::upsert_managed_block;
-use crate::core::output::{info, print_json, UserError};
+use crate::core::output::{info, print_json, warn, UserError};
 use crate::core::paths::{find_project_root, has_store};
-use crate::core::write_file::{write_if_changed, WriteAction, WriteOpts};
+use crate::core::write_file::{check_containment, write_if_changed, WriteAction, WriteOpts};
 
 pub type AdaptAction = WriteAction;
 
@@ -108,8 +108,19 @@ pub fn apply_adapter(
     sdd_hints: &[SddHint],
 ) -> Result<AdaptResult, UserError> {
     let rel_path = resolve_adapter_path(root, adapter);
-    let target = root.join(&rel_path);
     let body = build_pointer_body(sdd_hints);
+
+    // Security: resolve and validate the target *before* reading it, so a
+    // symlinked adapter target (e.g. `CLAUDE.md` -> `~/.zshrc`) is refused
+    // here rather than having its content read and then merged (agnosgram
+    // security audit, 2026-09-22, finding 2).
+    let target = check_containment(root, &rel_path).map_err(|err| {
+        UserError::new(format!(
+            "Could not write {}'s adapter file at {}: {}. This adapter's target resolves \
+             outside the project root, so it was skipped; the other adapters (if any) still ran.",
+            adapter.name, rel_path, err
+        ))
+    })?;
 
     let existing = if target.exists() {
         fs::read_to_string(&target).map_err(|e| UserError::new(e.to_string()))?
@@ -186,8 +197,22 @@ fn resolve_real_path(root: &Path, rel_path: &str) -> PathBuf {
 /// Group requested adapter keys by the real file they resolve to, so a
 /// symlinked pair (CLAUDE.md -> AGENTS.md, or the reverse) is written and
 /// reported once instead of twice. Only collapses a group when at least one
-/// member's path is an actual on-disk symlink.
+/// member's path is an actual on-disk symlink, **and** the real file it
+/// resolves to is still inside `root` - a symlink that escapes the project
+/// (agnosgram security audit, 2026-09-22, finding 2) is never treated as an
+/// alias; each of its keys is left as its own group so `apply_adapter`'s
+/// containment check refuses it individually instead of this function
+/// silently writing through it.
 fn group_by_symlink(root: &Path, keys: &[String]) -> Vec<Vec<String>> {
+    let canonical_root = fs::canonicalize(root).ok();
+    let is_contained = |real: &Path| {
+        canonical_root
+            .as_ref()
+            .map(|cr| real.starts_with(cr))
+            .unwrap_or(false)
+            || real.starts_with(root)
+    };
+
     let mut by_real_path: Vec<(PathBuf, Vec<String>)> = Vec::new();
     for key in keys {
         let Some(adapter) = get_adapter(key) else {
@@ -203,8 +228,9 @@ fn group_by_symlink(root: &Path, keys: &[String]) -> Vec<Vec<String>> {
     }
 
     let mut groups: Vec<Vec<String>> = Vec::new();
-    for (_, group) in by_real_path {
+    for (real, group) in by_real_path {
         let is_alias = group.len() > 1
+            && is_contained(&real)
             && group.iter().any(|key| {
                 get_adapter(key)
                     .map(|a| is_symlink(&root.join(resolve_adapter_path(root, a))))
@@ -368,8 +394,17 @@ pub fn run(argv: Vec<String>) -> Result<(), UserError> {
     let sdd_hints = resolve_sdd_hints(&root, &config);
     let groups = group_by_symlink(&root, &targets);
     let mut results: Vec<AdaptResult> = Vec::new();
+    // Security: one adapter whose target escapes the project root (a
+    // committed symlink, agnosgram security audit 2026-09-22 finding 2)
+    // must not abort the whole run - refuse that adapter and keep going, so
+    // e.g. `agnosgram adapt --all` still writes every legitimate target,
+    // then fail the command (non-zero exit) once all groups are done.
+    let mut failures: Vec<String> = Vec::new();
     for group in &groups {
-        results.push(apply_adapter_group(&root, group, &sdd_hints)?);
+        match apply_adapter_group(&root, group, &sdd_hints) {
+            Ok(result) => results.push(result),
+            Err(err) => failures.push(err.0),
+        }
     }
     let hooks_result = if claude_hooks {
         Some(install_claude_hooks(&root)?)
@@ -387,6 +422,12 @@ pub fn run(argv: Vec<String>) -> Result<(), UserError> {
             "sdd",
             Value::Array(sdd_hints.iter().map(sdd_hint_to_json).collect()),
         );
+        if !failures.is_empty() {
+            out.insert(
+                "errors",
+                Value::Array(failures.iter().cloned().map(Value::String).collect()),
+            );
+        }
         if let Some(hr) = &hooks_result {
             out.insert(
                 "claudeHooks",
@@ -404,6 +445,13 @@ pub fn run(argv: Vec<String>) -> Result<(), UserError> {
             );
         }
         print_json(&out);
+        if !failures.is_empty() {
+            return Err(UserError::new(format!(
+                "{} of {} adapter(s) failed; see \"errors\" above.",
+                failures.len(),
+                groups.len()
+            )));
+        }
         return Ok(());
     }
 
@@ -443,6 +491,16 @@ pub fn run(argv: Vec<String>) -> Result<(), UserError> {
         for w in &hr.written {
             info(&format!("  {:<9} {}", w.action.as_str(), w.path));
         }
+    }
+    if !failures.is_empty() {
+        for message in &failures {
+            warn(&format!("error: {message}"));
+        }
+        return Err(UserError::new(format!(
+            "{} of {} adapter(s) failed; see the error(s) above.",
+            failures.len(),
+            groups.len()
+        )));
     }
     Ok(())
 }
