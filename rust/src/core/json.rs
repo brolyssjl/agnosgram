@@ -293,10 +293,19 @@ impl fmt::Display for ParseError {
 }
 impl std::error::Error for ParseError {}
 
+/// Maximum nesting depth (objects/arrays) `parse_value` will descend before
+/// giving up with a `ParseError` instead of recursing further. Finding 4
+/// (2026-09-22 agnosgram security audit): a hand-crafted document with tens
+/// of thousands of nested `[`/`{` overflowed the call stack and aborted the
+/// process (SIGABRT), which no caller can recover from. 128 is far beyond
+/// any legitimate config shape this CLI reads.
+const MAX_DEPTH: usize = 128;
+
 struct Parser<'a> {
     chars: Vec<char>,
     pos: usize,
     src: &'a str,
+    depth: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -305,6 +314,7 @@ impl<'a> Parser<'a> {
             chars: src.chars().collect(),
             pos: 0,
             src,
+            depth: 0,
         }
     }
 
@@ -339,6 +349,22 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Enter one level of object/array nesting, rejecting past `MAX_DEPTH`.
+    /// On error the whole `Parser` is unwound (no caller inspects `depth`
+    /// after a `ParseError`), so callers only need to pair this with
+    /// `leave_depth` on the success path.
+    fn enter_depth(&mut self) -> Result<(), ParseError> {
+        if self.depth >= MAX_DEPTH {
+            return Err(self.err("nesting too deep"));
+        }
+        self.depth += 1;
+        Ok(())
+    }
+
+    fn leave_depth(&mut self) {
+        self.depth -= 1;
+    }
+
     fn parse_value(&mut self) -> Result<Value, ParseError> {
         self.skip_ws();
         match self.peek() {
@@ -364,10 +390,12 @@ impl<'a> Parser<'a> {
 
     fn parse_object(&mut self) -> Result<Value, ParseError> {
         self.expect('{')?;
+        self.enter_depth()?;
         let mut entries: Vec<(String, Value)> = Vec::new();
         self.skip_ws();
         if self.peek() == Some('}') {
             self.pos += 1;
+            self.leave_depth();
             return Ok(Value::Object(entries));
         }
         loop {
@@ -396,15 +424,18 @@ impl<'a> Parser<'a> {
                 _ => return Err(self.err("expected ',' or '}'")),
             }
         }
+        self.leave_depth();
         Ok(Value::Object(entries))
     }
 
     fn parse_array(&mut self) -> Result<Value, ParseError> {
         self.expect('[')?;
+        self.enter_depth()?;
         let mut items = Vec::new();
         self.skip_ws();
         if self.peek() == Some(']') {
             self.pos += 1;
+            self.leave_depth();
             return Ok(Value::Array(items));
         }
         loop {
@@ -422,6 +453,7 @@ impl<'a> Parser<'a> {
                 _ => return Err(self.err("expected ',' or ']'")),
             }
         }
+        self.leave_depth();
         Ok(Value::Array(items))
     }
 
@@ -676,5 +708,41 @@ mod tests {
     #[test]
     fn rejects_incomplete_input() {
         assert!(parse("{\"a\":").is_err());
+    }
+
+    /// Finding 4 (2026-09-22 agnosgram security audit): unbounded recursion
+    /// in `parse_value`/`parse_object`/`parse_array` let a deeply nested
+    /// document overflow the call stack and abort the process. A document
+    /// past `MAX_DEPTH` must now return a normal `ParseError` instead.
+    #[test]
+    fn rejects_deeply_nested_arrays_instead_of_overflowing_the_stack() {
+        let text = "[".repeat(30_000) + &"]".repeat(30_000);
+        let err = parse(&text).unwrap_err();
+        assert!(
+            err.0.contains("nesting too deep"),
+            "unexpected error: {}",
+            err.0
+        );
+    }
+
+    /// Same finding, object shape.
+    #[test]
+    fn rejects_deeply_nested_objects_instead_of_overflowing_the_stack() {
+        let text = "{\"a\":".repeat(30_000) + "null" + &"}".repeat(30_000);
+        let err = parse(&text).unwrap_err();
+        assert!(
+            err.0.contains("nesting too deep"),
+            "unexpected error: {}",
+            err.0
+        );
+    }
+
+    /// Nesting right at (and just under) the limit must still parse fine -
+    /// the fix must not lower the accepted depth for legitimate documents.
+    #[test]
+    fn accepts_nesting_comfortably_under_the_limit() {
+        let depth = 100;
+        let text = "[".repeat(depth) + &"]".repeat(depth);
+        assert!(parse(&text).is_ok());
     }
 }

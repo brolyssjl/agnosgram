@@ -54,6 +54,7 @@ format. Full field-by-field contract: [docs/schema-reference.md](schema-referenc
 | `freshness.mismatch` | `MEMORY.md`'s freshness-table row for `state/status.md` disagrees with `status.md`'s own `Last updated:` line - update the table row, since that is what `status.stale` (and `pack`) actually read |
 | `distill.lag` | the journal has real entries but `lessons/pitfalls.md` and `lessons/conventions.md` were never distilled, or the newest journal entry runs more than ~30 days ahead of the newest distilled lesson |
 | `git.untracked` | a file under `.agnosgram/` exists but git does not track it - commit it so other worktrees and `reflect` runs elsewhere can see it |
+| `lint.line-truncated` | a line (or paragraph) exceeded the 16 KiB safety-lint scan cap, so only its first 16 KiB was checked for secrets/injections - split it up or trim it |
 
 ## The safety lints
 
@@ -68,6 +69,45 @@ supply-chain surface:
 
 Both lean sensitive - a false positive is cheaper than a miss, and the human
 reviews each hit in the PR.
+
+### Normalization: a tripwire, not a filter
+
+Before either lint compares text, each line is normalized to close a
+handful of concrete bypasses a 2026-09-22 security audit demonstrated
+(inserting an invisible character mid-word, swapping in a look-alike
+letter, and so on):
+
+- Default-ignorable code points are stripped: zero-width space/non-joiner/
+  joiner (U+200B, U+200C, U+200D), word joiner (U+2060), BOM/zero-width
+  no-break space (U+FEFF), and soft hyphen (U+00AD).
+- Combining/diacritical marks (U+0300-U+036F) are stripped.
+- Fullwidth ASCII (U+FF01-U+FF5E, e.g. fullwidth "Ｉ") is folded to plain
+  ASCII.
+- A small, hand-picked table of Cyrillic and Greek letters that look like
+  Latin letters at normal reading sizes (e.g. Cyrillic "о", "е", "р") is
+  folded to their Latin look-alike.
+- A leading Markdown list/quote marker (`- `, `* `, `+ `, `1. `, `1) `,
+  `> `) is stripped from each line before the paragraph-normalized pass
+  joins hard-wrapped lines back into one phrase, so a hostile instruction
+  split across bullet points or blockquote lines is still caught.
+
+This is a **tripwire, not a filter**: it is a fixed, hand-picked list of
+code points and look-alikes chosen to close the specific bypasses the
+audit verified, not a general Unicode normalizer (no NFKC - the crate
+takes zero dependencies by policy). It will not catch every possible
+homoglyph, script-mixing, or combining-mark trick, and it makes no claim
+to. As with the lints themselves: lean sensitive, let a human review each
+hit, and do not treat a clean `doctor` run as proof a file contains no
+disguised instruction.
+
+Separately, any single line (or, for the paragraph-normalized pass, any
+single paragraph) is only ever matched up to its first 16 KiB - a
+pathologically long line (or a file with no blank lines at all) is
+matched up to that point and no further, so a single oversized line
+cannot make `doctor` hang. Whenever that cap trims something, `doctor`
+reports it as its own `lint.line-truncated` warning (one per truncated
+line, even though both the secret and injection passes hit the same
+cap) so an oversized line is not silently under-scanned.
 
 ## Recall freshness
 

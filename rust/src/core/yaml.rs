@@ -276,15 +276,29 @@ fn is_block_scalar_marker(rest: &str) -> bool {
     }
 }
 
+/// Maximum nesting depth of maps `parse_block` will descend into before
+/// returning a `YamlError` instead of recursing further. Finding 4
+/// (2026-09-22 agnosgram security audit): the same unbounded-recursion shape
+/// as the JSON parser exists here for deeply nested block maps; 128 is far
+/// beyond any legitimate `config.yml` or frontmatter shape this CLI reads.
+const MAX_DEPTH: usize = 128;
+
 /// Parse a block of lines whose indentation is >= `indent`, starting at `i`.
 fn parse_block(
     lines: &[Line],
     mut i: usize,
     indent: usize,
+    depth: usize,
 ) -> Result<(YamlValue, usize), YamlError> {
     let Some(first) = lines.get(i) else {
         return Ok((YamlValue::Null, i));
     };
+    if depth >= MAX_DEPTH {
+        return Err(YamlError(format!(
+            "Invalid YAML at line {}: nesting too deep",
+            first.line_no
+        )));
+    }
 
     if first.content.starts_with("- ") || first.content == "-" {
         let mut arr = Vec::new();
@@ -319,7 +333,7 @@ fn parse_block(
             set_map(&mut map, key, parse_scalar(&rest_owned));
         } else if i < lines.len() && lines[i].indent > indent {
             let next_indent = lines[i].indent;
-            let (value, next) = parse_block(lines, i, next_indent)?;
+            let (value, next) = parse_block(lines, i, next_indent, depth + 1)?;
             set_map(&mut map, key, value);
             i = next;
         } else {
@@ -342,7 +356,7 @@ pub fn parse_yaml(text: &str) -> Result<YamlValue, YamlError> {
     if lines.is_empty() {
         return Ok(YamlValue::Map(Vec::new()));
     }
-    let (value, next) = parse_block(&lines, 0, lines[0].indent)?;
+    let (value, next) = parse_block(&lines, 0, lines[0].indent, 0)?;
     if next < lines.len() {
         return Err(YamlError(format!(
             "Invalid YAML at line {}: unexpected indentation or content outside the supported subset",
@@ -619,5 +633,40 @@ mod tests {
     fn strips_a_comment_after_an_unquoted_value_containing_an_apostrophe() {
         let v = parse_yaml("note: don't repeat this # see LES-002\n").unwrap();
         assert_eq!(v.get("note").unwrap().as_str(), Some("don't repeat this"));
+    }
+
+    /// Builds a chain of `depth` nested single-key maps, each indented two
+    /// spaces deeper than its parent, bottoming out in an inline scalar.
+    fn nested_map_yaml(depth: usize) -> String {
+        let mut out = String::new();
+        for level in 0..depth {
+            out.push_str(&"  ".repeat(level));
+            out.push_str(&format!("k{level}:\n"));
+        }
+        out.push_str(&"  ".repeat(depth));
+        out.push_str("leaf: 1\n");
+        out
+    }
+
+    /// Finding 4 (2026-09-22 agnosgram security audit): `parse_block`
+    /// recursed once per nested map level with no depth limit, the same
+    /// unbounded-recursion shape as the JSON parser. Past `MAX_DEPTH` this
+    /// must now return a `YamlError` instead of risking a stack overflow.
+    #[test]
+    fn rejects_deeply_nested_maps_instead_of_overflowing_the_stack() {
+        let text = nested_map_yaml(200);
+        let err = parse_yaml(&text).unwrap_err();
+        assert!(
+            err.0.contains("nesting too deep"),
+            "unexpected error: {}",
+            err.0
+        );
+    }
+
+    /// Nesting comfortably under the limit must still parse fine.
+    #[test]
+    fn accepts_nested_maps_under_the_limit() {
+        let text = nested_map_yaml(50);
+        assert!(parse_yaml(&text).is_ok());
     }
 }

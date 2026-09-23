@@ -18,7 +18,10 @@ use crate::core::frontmatter::{
 };
 use crate::core::git::untracked_files;
 use crate::core::json::Value;
-use crate::core::lint::{scan_injections_with_paragraphs, scan_patterns, secret_patterns};
+use crate::core::lint::{
+    scan_injections_with_paragraphs_and_truncations, scan_patterns_with_truncations,
+    secret_patterns, LINE_TRUNCATED_CODE, LINT_MAX_LINE_CHARS,
+};
 use crate::core::meta::KNOWN_META_TYPES;
 use crate::core::output::{info, print_structured, UserError};
 use crate::core::paths::{find_project_root, has_store, memory_dir, MEMORY_DIR};
@@ -628,10 +631,16 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
     // 9. Safety lints: secrets (error, strictly per-line - secrets are
     // single-line artifacts) + prompt-injection imperatives (warn, per-line
     // plus a paragraph-normalized pass so hard-wrapped phrasing is still
-    // caught - agnosgram#43).
+    // caught - agnosgram#43) + line-truncation notices (finding 6, 2026-09-22
+    // agnosgram security audit): a line/paragraph over `LINT_MAX_LINE_CHARS`
+    // is only scanned up to that cap, so surface that as its own info-level
+    // finding rather than silently under-scanning. `Level` has no `Info`
+    // variant, so this uses `Warn`, the lowest severity that exists.
     let secret_pats = secret_patterns();
     for file in &store {
-        for hit in scan_patterns(&file.text, &secret_pats) {
+        let (secret_hits, secret_truncations) =
+            scan_patterns_with_truncations(&file.text, &secret_pats);
+        for hit in secret_hits {
             findings.push(Finding {
                 level: Level::Error,
                 code: format!("secret.{}", hit.code),
@@ -644,7 +653,9 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
                 ),
             });
         }
-        for hit in scan_injections_with_paragraphs(&file.text) {
+        let (injection_hits, injection_truncations) =
+            scan_injections_with_paragraphs_and_truncations(&file.text);
+        for hit in injection_hits {
             findings.push(Finding {
                 level: Level::Warn,
                 code: format!("injection.{}", hit.code),
@@ -654,6 +665,29 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
                 message: format!(
                     "{} in stored memory (\"{}\"); memory must not command the agent",
                     hit.label, hit.matched
+                ),
+            });
+        }
+        // Both scans above cap the same lines/paragraphs at the same
+        // length, so they frequently report the same truncated line twice
+        // (once from the secret pass, once from the injection pass) -
+        // dedupe by line before turning them into findings.
+        let mut truncated_lines: Vec<(usize, usize)> = Vec::new();
+        for t in secret_truncations.into_iter().chain(injection_truncations) {
+            if !truncated_lines.iter().any(|&(line, _)| line == t.line) {
+                truncated_lines.push((t.line, t.len));
+            }
+        }
+        for (line, len) in truncated_lines {
+            findings.push(Finding {
+                level: Level::Warn,
+                code: LINE_TRUNCATED_CODE.to_string(),
+                file: file.rel.clone(),
+                line: Some(line),
+                id: None,
+                message: format!(
+                    "line is {len} characters; only the first {LINT_MAX_LINE_CHARS} were \
+                     scanned for safety lints"
                 ),
             });
         }
