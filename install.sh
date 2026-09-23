@@ -97,6 +97,49 @@ verify_checksum() {
   fi
 }
 
+# Best-effort build-provenance check on top of the checksum above. The
+# checksum only proves the binary matches SHA256SUMS from the same release -
+# it says nothing if both were replaced together (a compromised GitHub
+# account or Actions token can do that). `gh attestation verify` checks the
+# binary against the SLSA provenance attestation release.yml records via
+# `actions/attest-build-provenance`, which is signed through GitHub's OIDC
+# issuer and Sigstore, not just committed alongside the asset.
+#
+# Skipped (with a note, not a failure) when `gh` isn't installed, since it's
+# the only tool that can check this. Treated as a pass when the release
+# predates attestations - older releases have none, and gh (as of 2.96.0)
+# reports that two different ways depending on how it resolved the subject:
+# a plain "no attestations found", or (verified against the real
+# gate-linux-x64/agnosgram-darwin-arm64 v1.5.1 assets, which predate this
+# feature) an HTTP 404 from the attestations API, e.g.
+#   Error: HTTP 404: Not Found (https://api.github.com/repos/OWNER/REPO/attestations/sha256:...?per_page=30&predicate_type=...)
+# Any other failure (signature mismatch, wrong repo, a different HTTP error)
+# aborts the install and removes the temp files, same as a checksum mismatch.
+verify_provenance() {
+  local file="$1" asset="$2"
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "Note: gh not found - build provenance not checked (checksum verified above). Install gh and re-run to also verify: gh attestation verify <file> --repo ${REPO}" >&2
+    return 0
+  fi
+
+  local out
+  if out="$(gh attestation verify "$file" --repo "$REPO" 2>&1)"; then
+    echo "$out"
+    echo "provenance verified"
+    return 0
+  fi
+
+  if echo "$out" | grep -Eqi 'no attestations found|HTTP 404.*attestations/'; then
+    echo "Note: no build attestations found for ${asset} (older releases predate provenance) - continuing on checksum verification alone." >&2
+    return 0
+  fi
+
+  echo "$out" >&2
+  echo "provenance verification FAILED for ${asset} - the release may have been tampered with. Nothing installed." >&2
+  return 1
+}
+
 install_binary() {
   local platform="$1" cpu="$2" tag="$3"
   local asset="${BIN_NAME}-${platform}-${cpu}"
@@ -127,6 +170,11 @@ install_binary() {
   fi
   echo "Checksum verified."
   rm -f "$sums_tmp"
+
+  if ! verify_provenance "$tmp" "$asset"; then
+    rm -f "$tmp"
+    return 1
+  fi
 
   chmod +x "$tmp"
   mv "$tmp" "$INSTALL_DIR/$BIN_NAME"
@@ -201,4 +249,10 @@ main() {
   fi
 }
 
-main "$@"
+# Only run on direct execution, not when sourced (e.g. to unit-test
+# verify_checksum/verify_provenance in isolation against a local fixture
+# pair instead of a real download - source this file, then call either
+# function directly).
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  main "$@"
+fi

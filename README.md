@@ -45,8 +45,9 @@ cargo build --release --manifest-path rust/Cargo.toml
 # -> rust/target/release/agnosgram
 ```
 
-Full details, the `gh`-fallback for flaky networks, and troubleshooting:
-[docs/install.md](docs/install.md).
+The script verifies the download's checksum, then (if `gh` is installed) its
+build-provenance attestation. Full details, the `gh`-fallback for flaky
+networks, and troubleshooting: [docs/install.md](docs/install.md).
 
 ## Quick start
 
@@ -131,6 +132,8 @@ through session hooks. Detection rules and per-tool notes:
 - [docs/feedback.md](docs/feedback.md) and [docs/reflect.md](docs/reflect.md) - the opt-in friction loop
 - [docs/schema-reference.md](docs/schema-reference.md) - the frozen on-disk format, field by field
 - [docs/trust-posture.md](docs/trust-posture.md) - how Agnosgram treats store content as untrusted data
+- [SECURITY.md](SECURITY.md) - supported versions, how to report a
+  vulnerability, and how to verify a release's checksum and provenance
 - [docs/how-it-compares.md](docs/how-it-compares.md) - comparison table and design principles
 - [ROADMAP.md](ROADMAP.md) - release history and what's next
 

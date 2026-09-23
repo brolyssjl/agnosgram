@@ -27,6 +27,27 @@ assets.
 Read the script before piping it into `bash` if you'd rather - it's a plain,
 short, `set -euo pipefail` shell script with no hidden steps.
 
+## Provenance verification
+
+The checksum above proves the binary matches the release's `SHA256SUMS` -
+not that both weren't replaced together by whoever controls the GitHub
+repo or its Actions token. `release.yml` also attests every release asset's
+build provenance with `actions/attest-build-provenance` (a signed SLSA
+statement tying the binary to the exact workflow run that built it).
+
+`install.sh` checks this automatically, after the checksum passes, when
+`gh` is on `PATH`: it runs `gh attestation verify <file> --repo
+brolyssjl/agnosgram` and prints `provenance verified` on success. A release
+built before attestations existed has none - the script notes that and
+continues rather than failing. Any other verification failure aborts the
+install with nothing placed on disk. Without `gh` installed, the script
+prints a one-line note that provenance wasn't checked and how to do it
+yourself:
+
+```bash
+gh attestation verify /path/to/agnosgram-linux-x64 --repo brolyssjl/agnosgram
+```
+
 ## Build from source
 
 `agnosgram` is not on npm and never will be - the Milestone 6 owner decision
