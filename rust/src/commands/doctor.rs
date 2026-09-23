@@ -3,7 +3,8 @@
 
 use std::collections::HashSet;
 use std::env;
-use std::path::Path;
+use std::fs;
+use std::path::{Component, Path, PathBuf};
 
 use crate::core::args::{parse_cli_args, ArgsConfig, OptionDef};
 use crate::core::config::{load_config, AgnosgramConfig};
@@ -142,9 +143,94 @@ fn find_markdown_link_targets(line: &str) -> Vec<String> {
     out
 }
 
-/// Markdown links to local files that do not exist, relative to the file's dir.
-fn check_broken_links(file: &StoreFile, findings: &mut Vec<Finding>) {
+/// Lexically collapse `.`/`..` components without touching the filesystem
+/// or resolving symlinks. Mirrors `core::paths`'s private `lexical_absolute`
+/// logic but is kept local to this module (task scope: this file's helpers
+/// only) - `path` must already be absolute.
+fn lexically_normalize(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for comp in path.components() {
+        match comp {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// Resolve a markdown link `target` against the directory containing the
+/// file it appears in, refusing to classify (let alone probe) anything that
+/// could escape the project root.
+///
+/// Finding #7 (2026-09-22 security audit): `file.path.parent().join(target)`
+/// let an absolute target replace the base entirely and let `..` walk out of
+/// the store, turning the presence/absence of a `link.broken` warning into a
+/// filesystem existence oracle over arbitrary paths. Absolute targets are
+/// refused outright; relative targets are resolved and lexically normalized
+/// (no filesystem access) and must land under `root` to be probed at all -
+/// the check happens strictly before any `path_exists` call.
+fn resolve_link_target(file_dir: &Path, target: &str, root: &Path) -> Option<PathBuf> {
+    if Path::new(target).is_absolute() {
+        return None;
+    }
+    let candidate = lexically_normalize(&file_dir.join(target));
+    let root_norm = lexically_normalize(root);
+    if candidate.starts_with(&root_norm) {
+        Some(candidate)
+    } else {
+        None
+    }
+}
+
+/// True when `candidate` (already confirmed to lexically normalize under
+/// `root`) passes through a symlink anywhere between `root` and the target
+/// itself - i.e. any existing path prefix from `root` down to `candidate` is
+/// a symlink per `fs::symlink_metadata` (which, unlike `fs::metadata` /
+/// `path_exists`, does not follow the final component).
+///
+/// Residual oracle found in PR review (2026-09-22, on top of finding #7): a
+/// committed symlink inside the store (e.g. `.agnosgram/context/esc -> /`)
+/// lexically normalizes under `root` - the earlier fix's containment check
+/// passes - but `path_exists` then follows the symlink at probe time, so
+/// `[a](esc/etc/passwd)` vs `[b](esc/etc/definitely-not-here)` again differ
+/// only by whether the host path exists. Deliberately does not canonicalize
+/// `candidate` to make this decision: canonicalize succeeding vs failing
+/// (e.g. on a dangling symlink) would itself be a second oracle. A symlink's
+/// mere *presence* is repo content - visible to anyone who clones the
+/// store - so reporting it leaks nothing about the host filesystem.
+fn resolves_through_symlink(root: &Path, candidate: &Path) -> bool {
+    let Ok(rel) = candidate.strip_prefix(root) else {
+        // Containment was already checked by the caller; treat any
+        // surprise here as unsafe rather than assume it is fine.
+        return true;
+    };
+    let mut prefix = root.to_path_buf();
+    for comp in rel.components() {
+        prefix.push(comp.as_os_str());
+        match fs::symlink_metadata(&prefix) {
+            Ok(meta) => {
+                if meta.file_type().is_symlink() {
+                    return true;
+                }
+            }
+            // Prefix does not exist (yet): nothing to follow, and no deeper
+            // prefix can exist either, so the walk is done.
+            Err(_) => break,
+        }
+    }
+    false
+}
+
+/// Markdown links to local files that do not exist, relative to the file's
+/// dir. Targets that are absolute, normalize outside the project root, or
+/// resolve through a symlink are reported as `link.outside-project` instead
+/// of being probed - see `resolve_link_target` and `resolves_through_symlink`.
+fn check_broken_links(file: &StoreFile, root: &Path, findings: &mut Vec<Finding>) {
     let lines: Vec<&str> = file.text.split('\n').collect();
+    let file_dir = file.path.parent().unwrap_or_else(|| Path::new(""));
     for (i, raw_line) in lines.iter().enumerate() {
         let line = raw_line.strip_suffix('\r').unwrap_or(raw_line);
         for raw_target_full in find_markdown_link_targets(line) {
@@ -158,20 +244,43 @@ fn check_broken_links(file: &StoreFile, findings: &mut Vec<Finding>) {
             if target.is_empty() {
                 continue;
             }
-            let resolved = file
-                .path
-                .parent()
-                .unwrap_or_else(|| Path::new(""))
-                .join(target);
-            if !path_exists(&resolved) {
-                findings.push(Finding {
-                    level: Level::Warn,
-                    code: "link.broken".to_string(),
-                    file: file.rel.clone(),
-                    line: Some(i + 1),
-                    id: None,
-                    message: format!("broken link to \"{target}\""),
-                });
+            match resolve_link_target(file_dir, target, root) {
+                Some(resolved) if resolves_through_symlink(root, &resolved) => {
+                    findings.push(Finding {
+                        level: Level::Warn,
+                        code: "link.outside-project".to_string(),
+                        file: file.rel.clone(),
+                        line: Some(i + 1),
+                        id: None,
+                        message: format!(
+                            "link target \"{target}\" resolves through a symlink; not checked"
+                        ),
+                    });
+                }
+                Some(resolved) => {
+                    if !path_exists(&resolved) {
+                        findings.push(Finding {
+                            level: Level::Warn,
+                            code: "link.broken".to_string(),
+                            file: file.rel.clone(),
+                            line: Some(i + 1),
+                            id: None,
+                            message: format!("broken link to \"{target}\""),
+                        });
+                    }
+                }
+                None => {
+                    findings.push(Finding {
+                        level: Level::Warn,
+                        code: "link.outside-project".to_string(),
+                        file: file.rel.clone(),
+                        line: Some(i + 1),
+                        id: None,
+                        message: format!(
+                            "link target \"{target}\" resolves outside the project; not checked"
+                        ),
+                    });
+                }
             }
         }
     }
@@ -548,7 +657,7 @@ pub fn collect_findings(root: &Path, config: &AgnosgramConfig) -> Vec<Finding> {
                 ),
             });
         }
-        check_broken_links(file, &mut findings);
+        check_broken_links(file, root, &mut findings);
     }
 
     // 10. Files under .agnosgram/ untracked by git. Friction and lessons
@@ -897,6 +1006,117 @@ mod tests {
         let c = codes(&root);
         assert!(c.contains(&"link.broken".to_string()));
         assert!(c.contains(&"budget.over".to_string()));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Finding #7 (2026-09-22 security audit, `check_broken_links`): before
+    /// this fix, `file.path.parent().join(target)` let an absolute target
+    /// replace the base and let `..` walk out of the store, so probing the
+    /// resolved path with `path_exists` turned "is there a `link.broken`
+    /// warning" into an existence oracle over arbitrary filesystem paths.
+    /// An existing absolute path (`/etc/passwd`) and a non-existing one must
+    /// now produce the exact same `link.outside-project` finding - no
+    /// existence check ever runs for either - while a target that lexically
+    /// normalizes back under the project root is still probed for real.
+    #[test]
+    fn read_containment_no_existence_oracle_for_out_of_root_link_targets() {
+        let root = tmp_store("read-containment-links");
+        fs::write(root.join("README.md"), "# readme\n").unwrap();
+        let status = root.join(".agnosgram/state/status.md");
+        fs::write(
+            &status,
+            "# Status\n\n[x](/etc/passwd) [y](/etc/definitely-not-here) [z](../../README.md) [w](./missing-in-root.md)\n",
+        )
+        .unwrap();
+
+        let config = load_config(&root).unwrap();
+        let findings = collect_findings(&root, &config);
+        let status_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| f.file == ".agnosgram/state/status.md")
+            .collect();
+
+        let has = |code: &str, needle: &str| {
+            status_findings
+                .iter()
+                .any(|f| f.code == code && f.message.contains(needle))
+        };
+
+        // Same finding regardless of whether the absolute target exists on
+        // this machine - no oracle.
+        assert!(
+            has("link.outside-project", "/etc/passwd"),
+            "{status_findings:?}"
+        );
+        assert!(
+            has("link.outside-project", "/etc/definitely-not-here"),
+            "{status_findings:?}"
+        );
+        assert!(
+            !has("link.broken", "/etc/passwd") && !has("link.broken", "/etc/definitely-not-here"),
+            "absolute targets must never be probed with path_exists: {status_findings:?}"
+        );
+
+        // A `..` target that normalizes back under the project root (and
+        // exists) is neither outside-project nor broken.
+        assert!(
+            !has("link.outside-project", "../../README.md"),
+            "{status_findings:?}"
+        );
+        assert!(
+            !has("link.broken", "../../README.md"),
+            "{status_findings:?}"
+        );
+
+        // A genuinely missing in-root target still gets a real link.broken.
+        assert!(
+            has("link.broken", "./missing-in-root.md"),
+            "{status_findings:?}"
+        );
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Residual oracle found in PR review on top of finding #7: a committed
+    /// symlink inside the store (e.g. `.agnosgram/context/esc -> /`)
+    /// lexically normalizes under the project root, so the containment check
+    /// alone let `path_exists` follow it at probe time - `[a](esc/etc/passwd)`
+    /// and `[b](esc/etc/definitely-not-here)` again differed only by whether
+    /// the host path exists. Both must now produce the identical
+    /// `link.outside-project` finding, with no `link.broken` for either.
+    #[test]
+    fn read_containment_symlink_inside_root_does_not_leak_host_existence() {
+        let root = tmp_store("read-containment-symlink");
+        std::os::unix::fs::symlink("/", root.join(".agnosgram/context/esc")).unwrap();
+        let linktest = root.join(".agnosgram/context/linktest.md");
+        fs::write(
+            &linktest,
+            "# Link test\n\n[a](esc/etc/passwd) [b](esc/etc/definitely-not-here)\n",
+        )
+        .unwrap();
+
+        let config = load_config(&root).unwrap();
+        let findings = collect_findings(&root, &config);
+        let file_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| f.file == ".agnosgram/context/linktest.md")
+            .collect();
+
+        let outside_for = |needle: &str| {
+            file_findings
+                .iter()
+                .any(|f| f.code == "link.outside-project" && f.message.contains(needle))
+        };
+        assert!(outside_for("esc/etc/passwd"), "{file_findings:?}");
+        assert!(
+            outside_for("esc/etc/definitely-not-here"),
+            "{file_findings:?}"
+        );
+        assert!(
+            !file_findings.iter().any(|f| f.code == "link.broken"),
+            "must never probe through the symlink - no existence oracle allowed: {file_findings:?}"
+        );
+
         fs::remove_dir_all(&root).unwrap();
     }
 
