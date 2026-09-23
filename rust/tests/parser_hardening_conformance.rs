@@ -8,8 +8,16 @@
 //! conformance test: before the fix it would observe the child process die
 //! from a signal; after the fix it observes a clean non-zero exit with an
 //! error message.
+//!
+//! Also covers finding 6 (same audit): `rust/src/core/lint.rs` caps any
+//! single line/paragraph it scans at `LINT_MAX_LINE_CHARS` (16 KiB) so a
+//! pathologically long line cannot make the safety lints slow or hang
+//! `doctor`. `doctor` surfaces each cap hit as its own `lint.line-truncated`
+//! finding (`rust/src/commands/doctor.rs`) rather than silently
+//! under-scanning, so the tests below check that finding end to end through
+//! `agnosgram doctor --json`.
 mod common;
-use common::{init_store, run_cli, TempDir};
+use common::{init_store, run_cli, write_store_file, Json, TempDir};
 use std::fs;
 
 /// 30 000 nested `[` (~60 KB), matching the audit's verified repro.
@@ -66,5 +74,84 @@ fn json_parser_rejects_deep_nesting_with_a_normal_parse_error() {
     assert!(
         err.to_string().contains("nesting too deep"),
         "unexpected error message: {err}"
+    );
+}
+
+/// Finding 6: a store file with a 40 000-character line - well past
+/// `LINT_MAX_LINE_CHARS` (16 384) - yields exactly one `lint.line-truncated`
+/// finding from `agnosgram doctor --json`, even though the line is scanned
+/// by both the secret pass and the injection pass (each of which notices
+/// the same truncated line - `doctor` must dedupe them into a single
+/// finding, not one per pass).
+#[test]
+fn a_forty_thousand_character_line_yields_exactly_one_line_truncated_finding() {
+    let root = TempDir::new("agnos-lint-truncation-conf");
+    init_store(root.path());
+
+    let long_line = "x".repeat(40_000);
+    write_store_file(
+        root.path(),
+        "context/long-line.md",
+        &format!("Intro line, nothing unusual.\n\n{long_line}\n\nOutro line.\n"),
+    );
+
+    let res = run_cli(&["doctor", "--json"], root.path());
+    let parsed = Json::parse(&res.stdout);
+    let findings = parsed
+        .get("findings")
+        .and_then(Json::as_array)
+        .expect("findings must be an array");
+
+    let truncated: Vec<&Json> = findings
+        .iter()
+        .filter(|f| f.get("code").and_then(Json::as_str) == Some("lint.line-truncated"))
+        .collect();
+    assert_eq!(
+        truncated.len(),
+        1,
+        "expected exactly one lint.line-truncated finding, got {truncated:?} \
+         (full findings: {findings:?})"
+    );
+
+    let finding = truncated[0];
+    assert_eq!(
+        finding.get("file").and_then(Json::as_str),
+        Some(".agnosgram/context/long-line.md")
+    );
+    assert_eq!(finding.get("line").and_then(Json::as_f64), Some(3.0));
+    let message = finding
+        .get("message")
+        .and_then(Json::as_str)
+        .expect("finding must have a message");
+    assert!(
+        message.contains("40000 characters") || message.contains("40,000 characters"),
+        "message should mention the line's actual length: {message}"
+    );
+    assert!(
+        message.contains("16384"),
+        "message should mention the scan cap: {message}"
+    );
+}
+
+/// The other half of finding 6's regression check: an ordinary store with no
+/// pathologically long lines must not produce any `lint.line-truncated`
+/// finding at all.
+#[test]
+fn a_normal_store_yields_no_line_truncated_findings() {
+    let root = TempDir::new("agnos-lint-truncation-conf-normal");
+    init_store(root.path());
+
+    let res = run_cli(&["doctor", "--json"], root.path());
+    let parsed = Json::parse(&res.stdout);
+    let findings = parsed
+        .get("findings")
+        .and_then(Json::as_array)
+        .expect("findings must be an array");
+
+    assert!(
+        !findings
+            .iter()
+            .any(|f| f.get("code").and_then(Json::as_str) == Some("lint.line-truncated")),
+        "a normal store must not report line truncation: {findings:?}"
     );
 }

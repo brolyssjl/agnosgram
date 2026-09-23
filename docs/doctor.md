@@ -54,6 +54,7 @@ format. Full field-by-field contract: [docs/schema-reference.md](schema-referenc
 | `freshness.mismatch` | `MEMORY.md`'s freshness-table row for `state/status.md` disagrees with `status.md`'s own `Last updated:` line - update the table row, since that is what `status.stale` (and `pack`) actually read |
 | `distill.lag` | the journal has real entries but `lessons/pitfalls.md` and `lessons/conventions.md` were never distilled, or the newest journal entry runs more than ~30 days ahead of the newest distilled lesson |
 | `git.untracked` | a file under `.agnosgram/` exists but git does not track it - commit it so other worktrees and `reflect` runs elsewhere can see it |
+| `lint.line-truncated` | a line (or paragraph) exceeded the 16 KiB safety-lint scan cap, so only its first 16 KiB was checked for secrets/injections - split it up or trim it |
 
 ## The safety lints
 
@@ -103,8 +104,10 @@ Separately, any single line (or, for the paragraph-normalized pass, any
 single paragraph) is only ever matched up to its first 16 KiB - a
 pathologically long line (or a file with no blank lines at all) is
 matched up to that point and no further, so a single oversized line
-cannot make `doctor` hang. This bound is internal to the lint engine and
-does not currently produce its own `doctor` finding.
+cannot make `doctor` hang. Whenever that cap trims something, `doctor`
+reports it as its own `lint.line-truncated` warning (one per truncated
+line, even though both the secret and injection passes hit the same
+cap) so an oversized line is not silently under-scanned.
 
 ## Recall freshness
 
