@@ -16,4 +16,4 @@ _Small and volatile. Overwrite freely; history lives in the journal._
   going public). Keep the reflect cadence running each soak/milestone.
 - **Blocked on:** nothing.
 
-_Last updated: 2026-09-23_
+_Last updated: 2026-10-01_
